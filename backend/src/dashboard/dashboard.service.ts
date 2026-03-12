@@ -1,0 +1,253 @@
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Prestamo } from '../prestamos/entities/prestamo.entity';
+import { CuotaInteres } from '../prestamos/entities/cuota-interes.entity';
+import { Operacion } from '../operaciones/entities/operacion.entity';
+import { EstadoPrestamo } from '../common/enums/estado-prestamo.enum';
+import { EstadoCuota } from '../common/enums/estado-cuota.enum';
+import { MonedasService } from '../monedas/monedas.service';
+
+export interface Movimiento {
+  id: string;
+  fecha: Date;
+  descripcion: string;
+  tipo: 'ingreso' | 'egreso' | 'compra' | 'venta' | 'pago_interes' | 'devolucion' | 'gasto';
+  moneda: string;
+  debe: number | null;
+  haber: number | null;
+  referenciaTipo: 'prestamo' | 'cuota' | 'operacion';
+  referenciaId: string;
+  cliente?: string;
+}
+
+export interface ResumenDashboard {
+  prestamosActivos: number;
+  capitalTotalPorMoneda: Record<string, number>;
+  interesesPendientesPorMoneda: Record<string, number>;
+  interesesPagadosPorMoneda: Record<string, number>;
+  operacionesTotales: number;
+  proximasCuotas: Array<{
+    cuotaId: string;
+    prestamoId: string;
+    cliente: string;
+    mesNumero: number;
+    montoPago: number;
+    moneda: string;
+    fechaVencimiento: Date;
+  }>;
+}
+
+@Injectable()
+export class DashboardService {
+  constructor(
+    @InjectRepository(Prestamo)
+    private readonly prestamoRepo: Repository<Prestamo>,
+    @InjectRepository(CuotaInteres)
+    private readonly cuotaRepo: Repository<CuotaInteres>,
+    @InjectRepository(Operacion)
+    private readonly operacionRepo: Repository<Operacion>,
+    private readonly monedasService: MonedasService,
+  ) {}
+
+  async getMovimientos(): Promise<Movimiento[]> {
+    const movimientos: Movimiento[] = [];
+
+    // 1. Ingresos por préstamos recibidos
+    const prestamos = await this.prestamoRepo.find({ order: { fechaInicio: 'ASC' } });
+    for (const p of prestamos) {
+      movimientos.push({
+        id: `prestamo-ingreso-${p.id}`,
+        fecha: p.fechaInicio,
+        descripcion: `Préstamo recibido de ${p.cliente}`,
+        tipo: 'ingreso',
+        moneda: p.moneda,
+        debe: null,
+        haber: p.montoInicial,
+        referenciaTipo: 'prestamo',
+        referenciaId: p.id,
+        cliente: p.cliente,
+      });
+
+      if (p.estado === EstadoPrestamo.DEVUELTO && p.fechaDevolucion) {
+        movimientos.push({
+          id: `prestamo-devolucion-${p.id}`,
+          fecha: p.fechaDevolucion,
+          descripcion: `Devolución de capital a ${p.cliente}`,
+          tipo: 'devolucion',
+          moneda: p.moneda,
+          debe: p.montoInicial,
+          haber: null,
+          referenciaTipo: 'prestamo',
+          referenciaId: p.id,
+          cliente: p.cliente,
+        });
+      }
+    }
+
+    // 2. Pagos de intereses (cuotas pagadas)
+    const cuotasPagadas = await this.cuotaRepo.find({
+      where: { estado: EstadoCuota.PAGADO },
+      relations: ['prestamo'],
+      order: { fechaPagoReal: 'ASC' },
+    });
+    for (const c of cuotasPagadas) {
+      movimientos.push({
+        id: `cuota-${c.id}`,
+        fecha: c.fechaPagoReal ?? c.fechaVencimiento,
+        descripcion: `Pago interés mes ${c.mesNumero} - ${c.prestamo?.cliente ?? ''}`,
+        tipo: 'pago_interes',
+        moneda: c.prestamo?.moneda ?? 'ARS',
+        debe: c.montoPago,
+        haber: null,
+        referenciaTipo: 'cuota',
+        referenciaId: c.id,
+        cliente: c.prestamo?.cliente,
+      });
+    }
+
+    // 3. Operaciones de compra/venta/gasto
+    const operaciones = await this.operacionRepo.find({
+      relations: ['prestamo'],
+      order: { fecha: 'ASC' },
+    });
+    for (const op of operaciones) {
+      if (op.tipo === 'gasto') {
+        movimientos.push({
+          id: `op-gasto-${op.id}`,
+          fecha: op.fecha,
+          descripcion: op.notas ? `Gasto: ${op.notas}` : `Gasto ${op.monedaOrigen}`,
+          tipo: 'gasto',
+          moneda: op.monedaOrigen,
+          debe: op.montoOrigen,
+          haber: null,
+          referenciaTipo: 'operacion',
+          referenciaId: op.id,
+          cliente: op.prestamo?.cliente,
+        });
+      } else {
+        movimientos.push({
+          id: `op-salida-${op.id}`,
+          fecha: op.fecha,
+          descripcion: `${op.tipo === 'compra' ? 'Compra' : 'Venta'} ${op.monedaDestino} (entrega ${op.monedaOrigen})`,
+          tipo: op.tipo === 'compra' ? 'compra' : 'venta',
+          moneda: op.monedaOrigen,
+          debe: op.montoOrigen,
+          haber: null,
+          referenciaTipo: 'operacion',
+          referenciaId: op.id,
+          cliente: op.prestamo?.cliente,
+        });
+        movimientos.push({
+          id: `op-entrada-${op.id}`,
+          fecha: op.fecha,
+          descripcion: `${op.tipo === 'compra' ? 'Compra' : 'Venta'} ${op.monedaDestino} @ ${op.tasaCambio}`,
+          tipo: op.tipo === 'compra' ? 'compra' : 'venta',
+          moneda: op.monedaDestino!,
+          debe: null,
+          haber: op.montoDestino,
+          referenciaTipo: 'operacion',
+          referenciaId: op.id,
+          cliente: op.prestamo?.cliente,
+        });
+      }
+    }
+
+    movimientos.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+    return movimientos;
+  }
+
+  async getResumen(): Promise<ResumenDashboard> {
+    const [prestamosActivos, codigos] = await Promise.all([
+      this.prestamoRepo.find({
+        where: { estado: EstadoPrestamo.ACTIVO },
+        relations: ['cuotas'],
+      }),
+      this.monedasService.getCodigos(),
+    ]);
+
+    const capitalTotalPorMoneda: Record<string, number> = {};
+    const interesesPendientesPorMoneda: Record<string, number> = {};
+    const interesesPagadosPorMoneda: Record<string, number> = {};
+
+    for (const codigo of codigos) {
+      capitalTotalPorMoneda[codigo] = 0;
+      interesesPendientesPorMoneda[codigo] = 0;
+      interesesPagadosPorMoneda[codigo] = 0;
+    }
+
+    for (const p of prestamosActivos) {
+      capitalTotalPorMoneda[p.moneda] = (capitalTotalPorMoneda[p.moneda] ?? 0) + p.montoInicial;
+      for (const c of p.cuotas ?? []) {
+        if (c.estado === EstadoCuota.PENDIENTE) {
+          interesesPendientesPorMoneda[p.moneda] = (interesesPendientesPorMoneda[p.moneda] ?? 0) + c.montoPago;
+        } else {
+          interesesPagadosPorMoneda[p.moneda] = (interesesPagadosPorMoneda[p.moneda] ?? 0) + c.montoPago;
+        }
+      }
+    }
+
+    const operacionesTotales = await this.operacionRepo.count();
+
+    const proximasCuotasRaw = await this.cuotaRepo.find({
+      where: { estado: EstadoCuota.PENDIENTE },
+      relations: ['prestamo'],
+      order: { fechaVencimiento: 'ASC' },
+      take: 10,
+    });
+
+    const proximasCuotas = proximasCuotasRaw.map((c) => ({
+      cuotaId: c.id,
+      prestamoId: c.prestamoId,
+      cliente: c.prestamo?.cliente ?? '',
+      mesNumero: c.mesNumero,
+      montoPago: c.montoPago,
+      moneda: c.prestamo?.moneda ?? 'ARS',
+      fechaVencimiento: c.fechaVencimiento,
+    }));
+
+    return {
+      prestamosActivos: prestamosActivos.length,
+      capitalTotalPorMoneda,
+      interesesPendientesPorMoneda,
+      interesesPagadosPorMoneda,
+      operacionesTotales,
+      proximasCuotas,
+    };
+  }
+
+  async getGananciaPorPrestamo(prestamoId: string) {
+    const prestamo = await this.prestamoRepo.findOne({
+      where: { id: prestamoId },
+      relations: ['cuotas'],
+    });
+    if (!prestamo) return null;
+
+    const operaciones = await this.operacionRepo.find({ where: { prestamoId } });
+
+    const gananciaPorMoneda: Record<string, number> = {};
+    for (const op of operaciones) {
+      gananciaPorMoneda[op.monedaOrigen] = (gananciaPorMoneda[op.monedaOrigen] ?? 0) - op.montoOrigen;
+      if (op.monedaDestino !== null && op.montoDestino !== null) {
+        gananciaPorMoneda[op.monedaDestino] = (gananciaPorMoneda[op.monedaDestino] ?? 0) + op.montoDestino;
+      }
+    }
+
+    const costoPorMoneda: Record<string, number> = {};
+    const cuotas = prestamo.cuotas ?? [];
+    const totalIntereses = cuotas
+      .filter((c) => c.estado === EstadoCuota.PAGADO)
+      .reduce((sum, c) => sum + c.montoPago, 0);
+    costoPorMoneda[prestamo.moneda] = totalIntereses;
+
+    return {
+      prestamoId,
+      cliente: prestamo.cliente,
+      moneda: prestamo.moneda,
+      montoInicial: prestamo.montoInicial,
+      gananciaTradingPorMoneda: gananciaPorMoneda,
+      costoInteresesPagados: costoPorMoneda,
+      operaciones: operaciones.length,
+    };
+  }
+}
