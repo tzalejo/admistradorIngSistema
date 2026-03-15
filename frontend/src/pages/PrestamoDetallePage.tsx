@@ -7,6 +7,9 @@ import {
   AlertTriangle,
   Edit2,
   TrendingUp,
+  CalendarCheck,
+  CalendarX,
+  Minus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -35,7 +38,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { prestamosService } from '@/services/prestamos.service';
-import { dashboardService } from '@/services/dashboard.service';
 import { formatMonto, formatDate, formatTasa, diasHastaVencimiento } from '@/lib/format';
 import type {
   Prestamo,
@@ -49,7 +51,6 @@ export function PrestamoDetallePage() {
   const { id } = useParams<{ id: string }>();
   const [prestamo, setPrestamo] = useState<Prestamo | null>(null);
   const [resumen, setResumen] = useState<ResumenPrestamo | null>(null);
-  const [ganancia, setGanancia] = useState<Record<string, number> | null>(null);
   const [loading, setLoading] = useState(true);
   const [editCuota, setEditCuota] = useState<CuotaInteres | null>(null);
 
@@ -58,11 +59,9 @@ export function PrestamoDetallePage() {
     Promise.all([
       prestamosService.getOne(id),
       prestamosService.getResumen(id),
-      dashboardService.getGanancia(id).catch(() => null),
-    ]).then(([p, r, g]) => {
+    ]).then(([p, r]) => {
       setPrestamo(p);
       setResumen(r);
-      if (g) setGanancia(g.gananciaTradingPorMoneda);
     }).finally(() => setLoading(false));
   };
 
@@ -124,7 +123,7 @@ export function PrestamoDetallePage() {
           <h2 className="font-semibold mb-4 flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-primary" /> Resumen financiero
           </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm mb-4">
             <div>
               <p className="text-muted-foreground mb-0.5">Total intereses (período)</p>
               <p className="font-mono font-semibold">
@@ -143,23 +142,26 @@ export function PrestamoDetallePage() {
                 {formatMonto(resumen.totalInteresPendiente, prestamo.moneda)}
               </p>
             </div>
-            {ganancia && (
-              <>
-                {Object.entries(ganancia).map(([moneda, monto]) => (
-                  <div key={moneda}>
-                    <p className="text-muted-foreground mb-0.5">
-                      Ganancia trading ({moneda})
-                    </p>
-                    <p className={`font-mono font-semibold ${monto >= 0 ? 'text-success' : 'text-destructive'}`}>
-                      {monto >= 0 ? '+' : ''}{monto.toFixed(2)} {moneda}
-                    </p>
-                  </div>
-                ))}
-              </>
-            )}
+          </div>
+
+          {/* Barra de progreso de cuotas */}
+          <div className="space-y-1.5">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>{resumen.cuotasPagadas} de {prestamo.plazoMeses} cuotas pagadas</span>
+              <span>{Math.round((resumen.cuotasPagadas / prestamo.plazoMeses) * 100)}%</span>
+            </div>
+            <div className="h-2 rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full rounded-full bg-primary transition-all"
+                style={{ width: `${(resumen.cuotasPagadas / prestamo.plazoMeses) * 100}%` }}
+              />
+            </div>
           </div>
         </div>
       )}
+
+      {/* Historial de pagos */}
+      <HistorialPagos cuotas={prestamo.cuotas ?? []} moneda={prestamo.moneda} />
 
       {/* Cuotas */}
       <div className="rounded-lg border border-border bg-card overflow-hidden">
@@ -239,6 +241,122 @@ export function PrestamoDetallePage() {
           onClose={() => setEditCuota(null)}
           onSaved={() => { setEditCuota(null); load(); }}
         />
+      )}
+    </div>
+  );
+}
+
+function HistorialPagos({ cuotas, moneda }: { cuotas: CuotaInteres[]; moneda: string }) {
+  const pagadas = cuotas.filter((c) => c.estado === 'pagado');
+  const pendientes = cuotas.filter((c) => c.estado === 'pendiente');
+
+  return (
+    <div className="rounded-lg border border-border bg-card overflow-hidden">
+      <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+        <h2 className="font-semibold flex items-center gap-2">
+          <CalendarCheck className="h-4 w-4 text-primary" />
+          Pagos de interés
+        </h2>
+        <span className="text-xs text-muted-foreground">
+          {pagadas.length} pagado{pagadas.length !== 1 ? 's' : ''} · {pendientes.length} pendiente{pendientes.length !== 1 ? 's' : ''}
+        </span>
+      </div>
+
+      {/* Cuotas pagadas */}
+      {pagadas.length > 0 && (
+        <div className="divide-y divide-border">
+          {pagadas.map((c) => {
+            const diasDiff = c.fechaPagoReal
+              ? Math.round(
+                  (new Date(c.fechaPagoReal).getTime() - new Date(c.fechaVencimiento).getTime()) /
+                  (1000 * 60 * 60 * 24),
+                )
+              : null;
+            const esTarde = diasDiff !== null && diasDiff > 0;
+            const esAntes = diasDiff !== null && diasDiff < 0;
+
+            return (
+              <div key={c.id} className="flex items-center gap-4 px-5 py-3.5 hover:bg-muted/20 transition-colors">
+                {/* Indicador de estado de pago */}
+                <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                  esTarde ? 'bg-orange-500/15' : 'bg-success/15'
+                }`}>
+                  <CheckCircle2 className={`h-4 w-4 ${esTarde ? 'text-orange-400' : 'text-success'}`} />
+                </div>
+
+                {/* Mes */}
+                <div className="w-14 flex-shrink-0">
+                  <p className="text-xs text-muted-foreground">Mes</p>
+                  <p className="font-semibold text-sm">{c.mesNumero}</p>
+                </div>
+
+                {/* Monto */}
+                <div className="flex-1 min-w-0">
+                  <p className="font-mono font-semibold text-sm">{formatMonto(c.montoPago, moneda)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Venc: {formatDate(c.fechaVencimiento)}
+                  </p>
+                </div>
+
+                {/* Fecha de pago real */}
+                <div className="text-right flex-shrink-0">
+                  <p className="text-sm font-medium">
+                    {c.fechaPagoReal ? formatDate(c.fechaPagoReal) : '—'}
+                  </p>
+                  {diasDiff !== null && (
+                    <p className={`text-xs flex items-center justify-end gap-0.5 ${
+                      esTarde ? 'text-orange-400' : esAntes ? 'text-success' : 'text-muted-foreground'
+                    }`}>
+                      {esTarde ? (
+                        <><CalendarX className="h-3 w-3" /> {diasDiff}d tarde</>
+                      ) : esAntes ? (
+                        <><CalendarCheck className="h-3 w-3" /> {Math.abs(diasDiff)}d antes</>
+                      ) : (
+                        <><Minus className="h-3 w-3" /> en fecha</>
+                      )}
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Cuotas pendientes — resumen compacto */}
+      {pendientes.length > 0 && (
+        <>
+          {pagadas.length > 0 && <div className="border-t border-border" />}
+          <div className="px-5 py-3 bg-muted/10">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+              Próximas cuotas
+            </p>
+            <div className="space-y-1.5">
+              {pendientes.map((c) => {
+                const dias = diasHastaVencimiento(c.fechaVencimiento);
+                const vencida = dias < 0;
+                return (
+                  <div key={c.id} className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      {vencida
+                        ? <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
+                        : <Clock className="h-3.5 w-3.5" />
+                      }
+                      Mes {c.mesNumero} · {formatDate(c.fechaVencimiento)}
+                      {vencida && <span className="text-destructive text-xs">({Math.abs(dias)}d vencida)</span>}
+                      {!vencida && dias <= 7 && <span className="text-warning text-xs">(en {dias}d)</span>}
+                    </span>
+                    <span className="font-mono text-xs">{formatMonto(c.montoPago, moneda)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
+
+      {pagadas.length === 0 && pendientes.length === 0 && (
+        <p className="text-center py-8 text-sm text-muted-foreground">Sin cuotas registradas</p>
       )}
     </div>
   );
