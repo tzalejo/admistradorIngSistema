@@ -56,6 +56,11 @@ const TIPO_CONFIG: Record<
     icon: <RefreshCw className="h-3.5 w-3.5" />,
     color: 'text-muted-foreground',
   },
+  gasto: {
+    label: 'Gasto',
+    icon: <ArrowUpRight className="h-3.5 w-3.5" />,
+    color: 'text-orange-400',
+  },
 };
 
 export function MovimientosPage() {
@@ -128,6 +133,7 @@ export function MovimientosPage() {
             <SelectItem value="venta">Ventas</SelectItem>
             <SelectItem value="pago_interes">Pago de intereses</SelectItem>
             <SelectItem value="devolucion">Devoluciones</SelectItem>
+            <SelectItem value="gasto">Gastos</SelectItem>
           </SelectContent>
         </Select>
       </div>
