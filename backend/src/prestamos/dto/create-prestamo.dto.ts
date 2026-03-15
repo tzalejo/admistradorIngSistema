@@ -23,7 +23,7 @@ export class CreatePrestamoDto {
   @IsPositive()
   montoInicial: number;
 
-  @ApiProperty({ description: 'Código de moneda (ej: ARS, USDT, BTC)' })
+  @ApiProperty({ description: 'Código de moneda (ej: ARS, USDT, USD)' })
   @IsString()
   @IsNotEmpty()
   moneda: string;

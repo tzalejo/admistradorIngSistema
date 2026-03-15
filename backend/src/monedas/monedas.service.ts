@@ -7,7 +7,6 @@ const SEED_MONEDAS = [
   { codigo: 'ARS', nombre: 'Peso Argentino', orden: 1 },
   { codigo: 'USDT', nombre: 'Tether USD', orden: 2 },
   { codigo: 'USD', nombre: 'Dólar Estadounidense', orden: 3 },
-  { codigo: 'BTC', nombre: 'Bitcoin', orden: 4 },
 ];
 
 @Injectable()

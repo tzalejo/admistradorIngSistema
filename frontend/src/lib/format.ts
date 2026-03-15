@@ -1,7 +1,4 @@
 export function formatMonto(amount: number, moneda: string): string {
-  if (moneda === 'BTC') {
-    return `₿ ${amount.toFixed(8)}`;
-  }
   if (moneda === 'USDT' || moneda === 'USD') {
     return new Intl.NumberFormat('es-AR', {
       style: 'currency',
