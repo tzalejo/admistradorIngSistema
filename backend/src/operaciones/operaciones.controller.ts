@@ -8,10 +8,9 @@ import {
   Param,
   Patch,
   Post,
-  Query,
   ParseUUIDPipe,
 } from '@nestjs/common';
-import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { OperacionesService } from './operaciones.service';
 import { CreateOperacionDto } from './dto/create-operacion.dto';
 import { UpdateOperacionDto } from './dto/update-operacion.dto';
@@ -28,10 +27,9 @@ export class OperacionesController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Listar operaciones (opcionalmente filtrar por préstamo)' })
-  @ApiQuery({ name: 'prestamoId', required: false, type: String })
-  findAll(@Query('prestamoId') prestamoId?: string) {
-    return this.operacionesService.findAll(prestamoId);
+  @ApiOperation({ summary: 'Listar todas las operaciones' })
+  findAll() {
+    return this.operacionesService.findAll();
   }
 
   @Get(':id')

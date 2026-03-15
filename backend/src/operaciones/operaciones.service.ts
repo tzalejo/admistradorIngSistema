@@ -15,7 +15,6 @@ export class OperacionesService {
 
   async create(dto: CreateOperacionDto): Promise<Operacion> {
     const operacion = this.operacionRepo.create({
-      prestamoId: dto.prestamoId ?? null,
       tipo: dto.tipo,
       monedaOrigen: dto.monedaOrigen,
       monedaDestino: dto.monedaDestino ?? null,
@@ -30,24 +29,14 @@ export class OperacionesService {
     return this.findOne(saved.id);
   }
 
-  async findAll(prestamoId?: string): Promise<Operacion[]> {
-    const query = this.operacionRepo.createQueryBuilder('op')
-      .leftJoinAndSelect('op.prestamo', 'prestamo')
-      .orderBy('op.fecha', 'DESC')
-      .addOrderBy('op.createdAt', 'DESC');
-
-    if (prestamoId) {
-      query.where('op.prestamo_id = :prestamoId', { prestamoId });
-    }
-
-    return query.getMany();
+  async findAll(): Promise<Operacion[]> {
+    return this.operacionRepo.find({
+      order: { fecha: 'DESC', createdAt: 'DESC' },
+    });
   }
 
   async findOne(id: string): Promise<Operacion> {
-    const op = await this.operacionRepo.findOne({
-      where: { id },
-      relations: ['prestamo'],
-    });
+    const op = await this.operacionRepo.findOne({ where: { id } });
     if (!op) throw new NotFoundException(`Operación ${id} no encontrada`);
     return op;
   }
@@ -56,7 +45,6 @@ export class OperacionesService {
     const op = await this.findOne(id);
 
     Object.assign(op, {
-      ...(dto.prestamoId !== undefined && { prestamoId: dto.prestamoId }),
       ...(dto.tipo !== undefined && { tipo: dto.tipo }),
       ...(dto.monedaOrigen !== undefined && { monedaOrigen: dto.monedaOrigen }),
       ...(dto.monedaDestino !== undefined && { monedaDestino: dto.monedaDestino }),

@@ -2,23 +2,15 @@ import {
   Column,
   CreateDateColumn,
   Entity,
-  ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { TipoOperacion } from '../../common/enums/tipo-operacion.enum';
-import { Prestamo } from '../../prestamos/entities/prestamo.entity';
 
 @Entity('operaciones')
 export class Operacion {
   @PrimaryGeneratedColumn('uuid')
   id: string;
-
-  @ManyToOne(() => Prestamo, { nullable: true, onDelete: 'SET NULL' })
-  prestamo: Prestamo | null;
-
-  @Column({ name: 'prestamo_id', type: 'varchar', nullable: true })
-  prestamoId: string | null;
 
   @Column({ type: 'enum', enum: TipoOperacion })
   tipo: TipoOperacion;

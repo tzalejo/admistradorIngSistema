@@ -107,10 +107,7 @@ export class DashboardService {
     }
 
     // 3. Operaciones de compra/venta/gasto
-    const operaciones = await this.operacionRepo.find({
-      relations: ['prestamo'],
-      order: { fecha: 'ASC' },
-    });
+    const operaciones = await this.operacionRepo.find({ order: { fecha: 'ASC' } });
     for (const op of operaciones) {
       if (op.tipo === 'gasto') {
         movimientos.push({
@@ -123,32 +120,29 @@ export class DashboardService {
           haber: null,
           referenciaTipo: 'operacion',
           referenciaId: op.id,
-          cliente: op.prestamo?.cliente,
         });
       } else {
         movimientos.push({
           id: `op-salida-${op.id}`,
           fecha: op.fecha,
-          descripcion: `${op.tipo === 'compra' ? 'Compra' : 'Venta'} ${op.monedaDestino} (entrega ${op.monedaOrigen})`,
+          descripcion: `Cambio ${op.monedaOrigen} → ${op.monedaDestino} (entrega)`,
           tipo: op.tipo === 'compra' ? 'compra' : 'venta',
           moneda: op.monedaOrigen,
           debe: op.montoOrigen,
           haber: null,
           referenciaTipo: 'operacion',
           referenciaId: op.id,
-          cliente: op.prestamo?.cliente,
         });
         movimientos.push({
           id: `op-entrada-${op.id}`,
           fecha: op.fecha,
-          descripcion: `${op.tipo === 'compra' ? 'Compra' : 'Venta'} ${op.monedaDestino} @ ${op.tasaCambio}`,
+          descripcion: `Cambio ${op.monedaOrigen} → ${op.monedaDestino} @ ${op.tasaCambio}`,
           tipo: op.tipo === 'compra' ? 'compra' : 'venta',
           moneda: op.monedaDestino!,
           debe: null,
           haber: op.montoDestino,
           referenciaTipo: 'operacion',
           referenciaId: op.id,
-          cliente: op.prestamo?.cliente,
         });
       }
     }
@@ -216,38 +210,51 @@ export class DashboardService {
     };
   }
 
-  async getGananciaPorPrestamo(prestamoId: string) {
-    const prestamo = await this.prestamoRepo.findOne({
-      where: { id: prestamoId },
-      relations: ['cuotas'],
-    });
-    if (!prestamo) return null;
+  /**
+   * Calcula el saldo real de cada moneda en caja:
+   *   + capital recibido de préstamos activos
+   *   - capital devuelto de préstamos devueltos
+   *   - montoOrigen de operaciones (lo que se entregó)
+   *   + montoDestino de operaciones (lo que se recibió)
+   *   - cuotas de interés ya pagadas
+   */
+  async getCajaPorMoneda(): Promise<Record<string, number>> {
+    const [prestamos, operaciones, cuotasPagadas, codigos] = await Promise.all([
+      this.prestamoRepo.find(),
+      this.operacionRepo.find(),
+      this.cuotaRepo.find({
+        where: { estado: EstadoCuota.PAGADO },
+        relations: ['prestamo'],
+      }),
+      this.monedasService.getCodigos(),
+    ]);
 
-    const operaciones = await this.operacionRepo.find({ where: { prestamoId } });
+    const caja: Record<string, number> = {};
+    for (const codigo of codigos) caja[codigo] = 0;
 
-    const gananciaPorMoneda: Record<string, number> = {};
-    for (const op of operaciones) {
-      gananciaPorMoneda[op.monedaOrigen] = (gananciaPorMoneda[op.monedaOrigen] ?? 0) - op.montoOrigen;
-      if (op.monedaDestino !== null && op.montoDestino !== null) {
-        gananciaPorMoneda[op.monedaDestino] = (gananciaPorMoneda[op.monedaDestino] ?? 0) + op.montoDestino;
+    for (const p of prestamos) {
+      // Capital recibido
+      caja[p.moneda] = (caja[p.moneda] ?? 0) + p.montoInicial;
+      // Capital devuelto
+      if (p.estado === EstadoPrestamo.DEVUELTO) {
+        caja[p.moneda] = (caja[p.moneda] ?? 0) - p.montoInicial;
       }
     }
 
-    const costoPorMoneda: Record<string, number> = {};
-    const cuotas = prestamo.cuotas ?? [];
-    const totalIntereses = cuotas
-      .filter((c) => c.estado === EstadoCuota.PAGADO)
-      .reduce((sum, c) => sum + c.montoPago, 0);
-    costoPorMoneda[prestamo.moneda] = totalIntereses;
+    for (const op of operaciones) {
+      caja[op.monedaOrigen] = (caja[op.monedaOrigen] ?? 0) - op.montoOrigen;
+      if (op.monedaDestino && op.montoDestino !== null) {
+        caja[op.monedaDestino] = (caja[op.monedaDestino] ?? 0) + op.montoDestino;
+      }
+    }
 
-    return {
-      prestamoId,
-      cliente: prestamo.cliente,
-      moneda: prestamo.moneda,
-      montoInicial: prestamo.montoInicial,
-      gananciaTradingPorMoneda: gananciaPorMoneda,
-      costoInteresesPagados: costoPorMoneda,
-      operaciones: operaciones.length,
-    };
+    for (const c of cuotasPagadas) {
+      if (c.prestamo) {
+        caja[c.prestamo.moneda] = (caja[c.prestamo.moneda] ?? 0) - c.montoPago;
+      }
+    }
+
+    return caja;
   }
+
 }

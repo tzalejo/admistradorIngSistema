@@ -4,10 +4,7 @@ import type { Operacion, CreateOperacionDto } from '@/types';
 export interface UpdateOperacionDto extends Partial<CreateOperacionDto> {}
 
 export const operacionesService = {
-  getAll: (prestamoId?: string) => {
-    const qs = prestamoId ? `?prestamoId=${prestamoId}` : '';
-    return api.get<Operacion[]>(`/operaciones${qs}`);
-  },
+  getAll: () => api.get<Operacion[]>('/operaciones'),
   getOne: (id: string) => api.get<Operacion>(`/operaciones/${id}`),
   create: (data: CreateOperacionDto) => api.post<Operacion>('/operaciones', data),
   update: (id: string, data: UpdateOperacionDto) =>

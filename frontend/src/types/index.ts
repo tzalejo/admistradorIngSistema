@@ -37,8 +37,6 @@ export interface Prestamo {
 
 export interface Operacion {
   id: string;
-  prestamoId: string | null;
-  prestamo: Pick<Prestamo, 'id' | 'cliente' | 'moneda'> | null;
   tipo: TipoOperacion;
   monedaOrigen: Moneda;
   monedaDestino: Moneda | null;
@@ -104,7 +102,6 @@ export interface CreatePrestamoDto {
 }
 
 export interface CreateOperacionDto {
-  prestamoId?: string;
   tipo: TipoOperacion;
   monedaOrigen: Moneda;
   monedaDestino?: Moneda;

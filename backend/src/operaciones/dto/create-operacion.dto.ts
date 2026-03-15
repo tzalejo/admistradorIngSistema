@@ -7,17 +7,11 @@ import {
   IsOptional,
   IsPositive,
   IsString,
-  IsUUID,
   ValidateIf,
 } from 'class-validator';
 import { TipoOperacion } from '../../common/enums/tipo-operacion.enum';
 
 export class CreateOperacionDto {
-  @ApiPropertyOptional({ description: 'ID del préstamo al que se asocia esta operación' })
-  @IsUUID()
-  @IsOptional()
-  prestamoId?: string;
-
   @ApiProperty({ enum: TipoOperacion, description: 'Tipo: compra, venta o gasto' })
   @IsEnum(TipoOperacion)
   tipo: TipoOperacion;

@@ -1,4 +1,4 @@
-import { Controller, Get, Param, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { DashboardService } from './dashboard.service';
 
@@ -19,9 +19,10 @@ export class DashboardController {
     return this.dashboardService.getMovimientos();
   }
 
-  @Get('ganancia/:prestamoId')
-  @ApiOperation({ summary: 'Ganancia neta de trading vs costo de un préstamo específico' })
-  getGanancia(@Param('prestamoId', ParseUUIDPipe) prestamoId: string) {
-    return this.dashboardService.getGananciaPorPrestamo(prestamoId);
+  @Get('caja')
+  @ApiOperation({ summary: 'Saldo real por moneda en caja (capital ± operaciones ± intereses pagados)' })
+  getCaja() {
+    return this.dashboardService.getCajaPorMoneda();
   }
+
 }
