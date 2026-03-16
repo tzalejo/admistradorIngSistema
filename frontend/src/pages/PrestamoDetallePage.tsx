@@ -10,6 +10,8 @@ import {
   CalendarCheck,
   CalendarX,
   Minus,
+  RotateCcw,
+  CreditCard,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -53,6 +55,8 @@ export function PrestamoDetallePage() {
   const [resumen, setResumen] = useState<ResumenPrestamo | null>(null);
   const [loading, setLoading] = useState(true);
   const [editCuota, setEditCuota] = useState<CuotaInteres | null>(null);
+  const [pagarCuota, setPagarCuota] = useState<CuotaInteres | null>(null);
+  const [devolverCapital, setDevolverCapital] = useState(false);
 
   const load = () => {
     if (!id) return;
@@ -78,23 +82,36 @@ export function PrestamoDetallePage() {
 
   return (
     <div className="space-y-6 max-w-4xl">
-      <div className="flex items-center gap-3">
-        <Link to="/prestamos">
-          <Button variant="ghost" size="icon">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold">{prestamo.cliente}</h1>
-          <div className="flex items-center gap-2 mt-1">
-            <Badge variant={estadoColors[prestamo.estado]}>
-              {prestamo.estado.charAt(0).toUpperCase() + prestamo.estado.slice(1)}
-            </Badge>
-            <span className="text-sm text-muted-foreground">
-              {prestamo.moneda} · {prestamo.plazoMeses} meses
-            </span>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Link to="/prestamos">
+            <Button variant="ghost" size="icon">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold">{prestamo.cliente}</h1>
+            <div className="flex items-center gap-2 mt-1">
+              <Badge variant={estadoColors[prestamo.estado]}>
+                {prestamo.estado.charAt(0).toUpperCase() + prestamo.estado.slice(1)}
+              </Badge>
+              <span className="text-sm text-muted-foreground">
+                {prestamo.moneda} · {prestamo.plazoMeses} meses
+              </span>
+            </div>
           </div>
         </div>
+        {prestamo.estado === 'activo' && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 shrink-0"
+            onClick={() => setDevolverCapital(true)}
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Devolver capital
+          </Button>
+        )}
       </div>
 
       {/* Info cards */}
@@ -161,7 +178,11 @@ export function PrestamoDetallePage() {
       )}
 
       {/* Historial de pagos */}
-      <HistorialPagos cuotas={prestamo.cuotas ?? []} moneda={prestamo.moneda} />
+      <HistorialPagos
+        cuotas={prestamo.cuotas ?? []}
+        moneda={prestamo.moneda}
+        onPagar={setPagarCuota}
+      />
 
       {/* Cuotas */}
       <div className="rounded-lg border border-border bg-card overflow-hidden">
@@ -242,11 +263,36 @@ export function PrestamoDetallePage() {
           onSaved={() => { setEditCuota(null); load(); }}
         />
       )}
+
+      {pagarCuota && (
+        <PagarCuotaDialog
+          cuota={pagarCuota}
+          moneda={prestamo.moneda}
+          onClose={() => setPagarCuota(null)}
+          onSaved={() => { setPagarCuota(null); load(); }}
+        />
+      )}
+
+      {devolverCapital && (
+        <DevolverCapitalDialog
+          prestamo={prestamo}
+          onClose={() => setDevolverCapital(false)}
+          onSaved={() => { setDevolverCapital(false); load(); }}
+        />
+      )}
     </div>
   );
 }
 
-function HistorialPagos({ cuotas, moneda }: { cuotas: CuotaInteres[]; moneda: string }) {
+function HistorialPagos({
+  cuotas,
+  moneda,
+  onPagar,
+}: {
+  cuotas: CuotaInteres[];
+  moneda: string;
+  onPagar: (cuota: CuotaInteres) => void;
+}) {
   const pagadas = cuotas.filter((c) => c.estado === 'pagado');
   const pendientes = cuotas.filter((c) => c.estado === 'pendiente');
 
@@ -346,7 +392,18 @@ function HistorialPagos({ cuotas, moneda }: { cuotas: CuotaInteres[]; moneda: st
                       {vencida && <span className="text-destructive text-xs">({Math.abs(dias)}d vencida)</span>}
                       {!vencida && dias <= 7 && <span className="text-warning text-xs">(en {dias}d)</span>}
                     </span>
-                    <span className="font-mono text-xs">{formatMonto(c.montoPago, moneda)}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-xs">{formatMonto(c.montoPago, moneda)}</span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-xs gap-1"
+                        onClick={() => onPagar(c)}
+                      >
+                        <CreditCard className="h-3 w-3" />
+                        Pagar
+                      </Button>
+                    </div>
                   </div>
                 );
               })}
@@ -497,6 +554,178 @@ function EditCuotaDialog({
             </Button>
             <Button type="submit" disabled={saving}>
               {saving ? 'Guardando...' : 'Guardar'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PagarCuotaDialog({
+  cuota,
+  moneda,
+  onClose,
+  onSaved,
+}: {
+  cuota: CuotaInteres;
+  moneda: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const today = new Date().toISOString().split('T')[0];
+  const [fecha, setFecha] = useState(today);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+    try {
+      await prestamosService.updateCuota(cuota.id, {
+        estado: 'pagado',
+        fechaPagoReal: fecha,
+      });
+      onSaved();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al registrar');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Pagar cuota {cuota.mesNumero}</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="rounded-md bg-muted/50 border border-border p-3 text-sm space-y-1">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Monto</span>
+              <span className="font-mono font-semibold">{formatMonto(cuota.montoPago, moneda)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Vencimiento</span>
+              <span>{formatDate(cuota.fechaVencimiento)}</span>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Fecha de pago</Label>
+            <Input
+              type="date"
+              value={fecha}
+              onChange={(e) => setFecha(e.target.value)}
+            />
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-2 text-sm text-destructive">
+              <AlertTriangle className="h-4 w-4 shrink-0" /> {error}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? 'Registrando...' : 'Confirmar pago'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DevolverCapitalDialog({
+  prestamo,
+  onClose,
+  onSaved,
+}: {
+  prestamo: Prestamo;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const today = new Date().toISOString().split('T')[0];
+  const [fecha, setFecha] = useState(today);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const cuotasPendientes = (prestamo.cuotas ?? []).filter((c) => c.estado === 'pendiente');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+    try {
+      await prestamosService.update(prestamo.id, {
+        estado: 'devuelto',
+        fechaDevolucion: fecha,
+      });
+      onSaved();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al registrar');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Devolver capital</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="rounded-md bg-muted/50 border border-border p-3 text-sm space-y-1">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Capital a devolver</span>
+              <span className="font-mono font-semibold text-destructive">
+                {formatMonto(prestamo.montoInicial, prestamo.moneda)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Cuotas pendientes</span>
+              <span className={cuotasPendientes.length > 0 ? 'text-orange-400' : 'text-success'}>
+                {cuotasPendientes.length === 0 ? '✓ Todas pagadas' : `${cuotasPendientes.length} sin pagar`}
+              </span>
+            </div>
+          </div>
+
+          {cuotasPendientes.length > 0 && (
+            <div className="flex items-start gap-2 text-xs text-orange-400 bg-orange-500/10 border border-orange-500/20 rounded-md p-3">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+              Hay {cuotasPendientes.length} cuota{cuotasPendientes.length > 1 ? 's' : ''} de interés sin pagar.
+              Podés igualmente registrar la devolución.
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <Label>Fecha de devolución</Label>
+            <Input
+              type="date"
+              value={fecha}
+              onChange={(e) => setFecha(e.target.value)}
+            />
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-2 text-sm text-destructive">
+              <AlertTriangle className="h-4 w-4 shrink-0" /> {error}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? 'Cerrando...' : 'Confirmar devolución'}
             </Button>
           </DialogFooter>
         </form>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, ArrowRight, AlertTriangle, Receipt, CreditCard, RotateCcw } from 'lucide-react';
+import { Plus, Trash2, ArrowRight, AlertTriangle, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -28,11 +28,10 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { operacionesService } from '@/services/operaciones.service';
-import { prestamosService } from '@/services/prestamos.service';
 import { dashboardService } from '@/services/dashboard.service';
 import { monedasService, type MonedaItem } from '@/services/monedas.service';
 import { formatMonto, formatDate } from '@/lib/format';
-import type { Operacion, CreateOperacionDto, Moneda, Prestamo, CuotaInteres } from '@/types';
+import type { Operacion, CreateOperacionDto, Moneda } from '@/types';
 
 function OperacionBadge({ op }: { op: Operacion }) {
   if (op.tipo === 'gasto') {
@@ -102,7 +101,7 @@ export function OperacionesPage() {
         <div>
           <h1 className="text-2xl font-bold">Operaciones</h1>
           <p className="text-muted-foreground text-sm mt-0.5">
-            Cambios de divisa, gastos, pagos de interés y devoluciones
+            Cambios de divisa y gastos
           </p>
         </div>
         <Button onClick={() => setShowForm(true)} className="gap-2">
@@ -230,9 +229,61 @@ function formatTasaDisplay(tasaCambio: number | null, monedaOrigen: string, mone
   return tasaCambio.toLocaleString('es-AR');
 }
 
+// ── MoneyInput: input de texto con formato de miles al salir ──────────────────
+
+function parseMoney(str: string): number {
+  if (!str) return 0;
+  // Si hay coma, asumimos formato argentino: punto=miles, coma=decimal
+  if (str.includes(',')) return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
+  // Si hay un único punto y podría ser decimal en inglés, lo dejamos como está
+  return parseFloat(str.replace(/[^\d.]/g, '')) || 0;
+}
+
+function MoneyInput({
+  value,
+  onChange,
+  placeholder,
+  className,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  const [focused, setFocused] = useState(false);
+  const [raw, setRaw] = useState('');
+
+  const formatted =
+    value > 0 ? value.toLocaleString('es-AR', { maximumFractionDigits: 2 }) : '';
+
+  return (
+    <Input
+      type="text"
+      inputMode="decimal"
+      className={className}
+      placeholder={placeholder ?? '0'}
+      value={focused ? raw : formatted}
+      onFocus={(e) => {
+        setFocused(true);
+        setRaw(value > 0 ? String(value) : '');
+        setTimeout(() => e.target.select(), 0);
+      }}
+      onBlur={() => {
+        setFocused(false);
+        onChange(parseMoney(raw));
+      }}
+      onChange={(e) => {
+        setRaw(e.target.value);
+        const parsed = parseMoney(e.target.value);
+        if (parsed >= 0) onChange(parsed);
+      }}
+    />
+  );
+}
+
 // ── Formulario nueva operación ────────────────────────────────────────────────
 
-type ModoFormulario = 'cambio' | 'gasto' | 'interes' | 'devolucion';
+type ModoFormulario = 'cambio' | 'gasto';
 
 interface FormState {
   monedaOrigen: string;
@@ -245,10 +296,8 @@ interface FormState {
 }
 
 const MODOS: { key: ModoFormulario; label: string; icon: React.ReactNode }[] = [
-  { key: 'cambio',     label: 'Cambio de divisa',   icon: <ArrowRight className="h-3.5 w-3.5" /> },
-  { key: 'gasto',      label: 'Gasto / Pago',        icon: <Receipt className="h-3.5 w-3.5" /> },
-  { key: 'interes',    label: 'Pago de interés',     icon: <CreditCard className="h-3.5 w-3.5" /> },
-  { key: 'devolucion', label: 'Devolución capital',  icon: <RotateCcw className="h-3.5 w-3.5" /> },
+  { key: 'cambio', label: 'Cambio de divisa', icon: <ArrowRight className="h-3.5 w-3.5" /> },
+  { key: 'gasto', label: 'Gasto / Pago', icon: <Receipt className="h-3.5 w-3.5" /> },
 ];
 
 function NuevaOperacionDialog({
@@ -286,46 +335,8 @@ function NuevaOperacionDialog({
   const [gastoNotas, setGastoNotas] = useState('');
   const [gastoFecha, setGastoFecha] = useState(today);
 
-  // ── Estado modo interés/devolución ──
-  const [prestamos, setPrestamos] = useState<Prestamo[]>([]);
-  const [loadingPrestamos, setLoadingPrestamos] = useState(false);
-  const [prestamosLoaded, setPrestamosLoaded] = useState(false);
-
-  // Interés
-  const [interesPrestamoId, setInteresPrestamoId] = useState('');
-  const [cuotasPendientes, setCuotasPendientes] = useState<CuotaInteres[]>([]);
-  const [interesCuotaId, setInteresCuotaId] = useState('');
-  const [interesFecha, setInteresFecha] = useState(today);
-
-  // Devolución
-  const [devolucionPrestamoId, setDevolucionPrestamoId] = useState('');
-  const [devolucionFecha, setDevolucionFecha] = useState(today);
-
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-
-  // Cargar préstamos activos al entrar a los modos que los necesitan
-  useEffect(() => {
-    if ((modo === 'interes' || modo === 'devolucion') && !prestamosLoaded) {
-      setLoadingPrestamos(true);
-      prestamosService.getAll()
-        .then((all) => {
-          setPrestamos(all.filter((p) => p.estado === 'activo'));
-          setPrestamosLoaded(true);
-        })
-        .finally(() => setLoadingPrestamos(false));
-    }
-  }, [modo]);
-
-  // Cargar cuotas pendientes al seleccionar un préstamo en modo interés
-  useEffect(() => {
-    if (!interesPrestamoId) { setCuotasPendientes([]); setInteresCuotaId(''); return; }
-    prestamosService.getCuotas(interesPrestamoId).then((cuotas) => {
-      const pendientes = cuotas.filter((c) => c.estado === 'pendiente');
-      setCuotasPendientes(pendientes);
-      setInteresCuotaId(pendientes[0]?.id ?? '');
-    });
-  }, [interesPrestamoId]);
 
   const set = (field: keyof FormState, value: unknown) =>
     setForm((f) => ({ ...f, [field]: value }));
@@ -334,7 +345,9 @@ function NuevaOperacionDialog({
 
   const calcDestino = (origen: number, tasa: number, origenM: string, destinoM: string) => {
     if (tasa <= 0 && !esPorPorcentaje(origenM, destinoM)) return 0;
-    if (MONEDAS_FIAT.has(origenM) && !MONEDAS_FIAT.has(destinoM)) return origen / tasa;
+    // ARS es siempre la moneda "base" (más barata): se divide para obtener la moneda destino.
+    // Cubre ARS→USDT, ARS→USD y cualquier otro ARS→X.
+    if (origenM === 'ARS') return origen / tasa;
     return origen * tasa;
   };
 
@@ -413,19 +426,6 @@ function NuevaOperacionDialog({
         };
         await operacionesService.create(dto);
 
-      } else if (modo === 'interes') {
-        if (!interesCuotaId) { setError('Seleccioná una cuota pendiente'); return; }
-        await prestamosService.updateCuota(interesCuotaId, {
-          estado: 'pagado',
-          fechaPagoReal: interesFecha,
-        });
-
-      } else if (modo === 'devolucion') {
-        if (!devolucionPrestamoId) { setError('Seleccioná un préstamo'); return; }
-        await prestamosService.update(devolucionPrestamoId, {
-          estado: 'devuelto',
-          fechaDevolucion: devolucionFecha,
-        });
       }
 
       onCreated();
@@ -438,14 +438,6 @@ function NuevaOperacionDialog({
 
   const monedasDestino = monedas.filter((m) => m.codigo !== form.monedaOrigen);
   const balanceOrigen = capitalPorMoneda[form.monedaOrigen] ?? 0;
-
-  // Para devolución: datos del préstamo seleccionado
-  const prestamoDev = prestamos.find((p) => p.id === devolucionPrestamoId);
-  const cuotasPendientesDev = prestamoDev?.cuotas?.filter((c) => c.estado === 'pendiente') ?? [];
-
-  // Para interés: cuota seleccionada
-  const cuotaSeleccionada = cuotasPendientes.find((c) => c.id === interesCuotaId);
-  const prestamoInteres = prestamos.find((p) => p.id === interesPrestamoId);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -513,10 +505,9 @@ function NuevaOperacionDialog({
                         </span>
                       )}
                     </Label>
-                    <Input
-                      type="number" min="0" step="any"
-                      value={form.montoOrigen || ''}
-                      onChange={(e) => handleMontoOrigenChange(parseFloat(e.target.value) || 0)}
+                    <MoneyInput
+                      value={form.montoOrigen}
+                      onChange={handleMontoOrigenChange}
                     />
                   </div>
                 </div>
@@ -575,10 +566,9 @@ function NuevaOperacionDialog({
                   </div>
                   <div className="space-y-1.5">
                     <Label>Cantidad (calculada)</Label>
-                    <Input
-                      type="number" step="any"
-                      value={form.montoDestino ? form.montoDestino.toFixed(8) : ''}
-                      onChange={(e) => set('montoDestino', parseFloat(e.target.value) || 0)}
+                    <MoneyInput
+                      value={form.montoDestino}
+                      onChange={(v) => set('montoDestino', v)}
                     />
                   </div>
                 </div>
@@ -617,11 +607,7 @@ function NuevaOperacionDialog({
                 </div>
                 <div className="space-y-1.5">
                   <Label>Monto</Label>
-                  <Input
-                    type="number" min="0" step="any"
-                    value={gastoMonto || ''}
-                    onChange={(e) => setGastoMonto(parseFloat(e.target.value) || 0)}
-                  />
+                  <MoneyInput value={gastoMonto} onChange={setGastoMonto} />
                 </div>
               </div>
               <div className="space-y-1.5">
@@ -636,136 +622,6 @@ function NuevaOperacionDialog({
             </>
           )}
 
-          {/* ── Pago de interés ── */}
-          {modo === 'interes' && (
-            <>
-              {loadingPrestamos ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">Cargando préstamos...</p>
-              ) : prestamos.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">No hay préstamos activos</p>
-              ) : (
-                <>
-                  <div className="space-y-1.5">
-                    <Label>Préstamo</Label>
-                    <Select value={interesPrestamoId} onValueChange={setInteresPrestamoId}>
-                      <SelectTrigger><SelectValue placeholder="Seleccioná un préstamo" /></SelectTrigger>
-                      <SelectContent>
-                        {prestamos.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.cliente} — {formatMonto(p.montoInicial, p.moneda)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {interesPrestamoId && (
-                    cuotasPendientes.length === 0 ? (
-                      <p className="text-sm text-success text-center py-2">
-                        ✓ Todas las cuotas de este préstamo ya están pagadas
-                      </p>
-                    ) : (
-                      <>
-                        <div className="space-y-1.5">
-                          <Label>Cuota a pagar</Label>
-                          <Select value={interesCuotaId} onValueChange={setInteresCuotaId}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              {cuotasPendientes.map((c) => (
-                                <SelectItem key={c.id} value={c.id}>
-                                  Mes {c.mesNumero} — {formatMonto(c.montoPago, prestamoInteres?.moneda ?? '')} · vence {formatDate(c.fechaVencimiento)}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        {cuotaSeleccionada && (
-                          <div className="rounded-md bg-muted/50 border border-border p-3 text-sm space-y-1">
-                            <div className="flex justify-between">
-                              <span className="text-muted-foreground">Monto a pagar</span>
-                              <span className="font-mono font-semibold">
-                                {formatMonto(cuotaSeleccionada.montoPago, prestamoInteres?.moneda ?? '')}
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-muted-foreground">Vencimiento</span>
-                              <span>{formatDate(cuotaSeleccionada.fechaVencimiento)}</span>
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="space-y-1.5">
-                          <Label>Fecha de pago</Label>
-                          <Input type="date" value={interesFecha} onChange={(e) => setInteresFecha(e.target.value)} />
-                        </div>
-                      </>
-                    )
-                  )}
-                </>
-              )}
-            </>
-          )}
-
-          {/* ── Devolución de capital ── */}
-          {modo === 'devolucion' && (
-            <>
-              {loadingPrestamos ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">Cargando préstamos...</p>
-              ) : prestamos.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">No hay préstamos activos</p>
-              ) : (
-                <>
-                  <div className="space-y-1.5">
-                    <Label>Préstamo a cerrar</Label>
-                    <Select value={devolucionPrestamoId} onValueChange={setDevolucionPrestamoId}>
-                      <SelectTrigger><SelectValue placeholder="Seleccioná un préstamo" /></SelectTrigger>
-                      <SelectContent>
-                        {prestamos.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.cliente} — {formatMonto(p.montoInicial, p.moneda)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {prestamoDev && (
-                    <>
-                      <div className="rounded-md bg-muted/50 border border-border p-3 text-sm space-y-1">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Capital a devolver</span>
-                          <span className="font-mono font-semibold text-destructive">
-                            {formatMonto(prestamoDev.montoInicial, prestamoDev.moneda)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Cuotas pendientes</span>
-                          <span className={cuotasPendientesDev.length > 0 ? 'text-orange-400' : 'text-success'}>
-                            {cuotasPendientesDev.length === 0 ? '✓ Todas pagadas' : `${cuotasPendientesDev.length} sin pagar`}
-                          </span>
-                        </div>
-                      </div>
-
-                      {cuotasPendientesDev.length > 0 && (
-                        <div className="flex items-start gap-2 text-xs text-orange-400 bg-orange-500/10 border border-orange-500/20 rounded-md p-3">
-                          <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                          Hay {cuotasPendientesDev.length} cuota{cuotasPendientesDev.length > 1 ? 's' : ''} de interés sin pagar.
-                          Podés igualmente registrar la devolución.
-                        </div>
-                      )}
-
-                      <div className="space-y-1.5">
-                        <Label>Fecha de devolución</Label>
-                        <Input type="date" value={devolucionFecha} onChange={(e) => setDevolucionFecha(e.target.value)} />
-                      </div>
-                    </>
-                  )}
-                </>
-              )}
-            </>
-          )}
-
           {error && (
             <div className="flex items-center gap-2 text-sm text-destructive">
               <AlertTriangle className="h-4 w-4 shrink-0" /> {error}
@@ -777,11 +633,7 @@ function NuevaOperacionDialog({
               Cancelar
             </Button>
             <Button type="submit" disabled={saving}>
-              {saving ? 'Registrando...' : (
-                modo === 'interes' ? 'Registrar pago' :
-                modo === 'devolucion' ? 'Cerrar préstamo' :
-                'Registrar'
-              )}
+              {saving ? 'Registrando...' : 'Registrar'}
             </Button>
           </DialogFooter>
         </form>
