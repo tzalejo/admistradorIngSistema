@@ -4,28 +4,29 @@
 
 @layer base {
   :root {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
-    --card: 222 47% 14%;
-    --card-foreground: 210 40% 98%;
-    --border: 217 33% 20%;
-    --input: 217 33% 20%;
-    --ring: 212 100% 60%;
-    --primary: 212 100% 60%;
-    --primary-foreground: 222 47% 11%;
-    --secondary: 217 33% 20%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 55%;
-    --accent: 217 33% 20%;
-    --accent-foreground: 210 40% 98%;
+    /* Bitcoin Neuquén palette */
+    --background: 228 22% 7%;          /* #0f1117 */
+    --foreground: 225 57% 96%;         /* #f0f2f8 */
+    --card: 226 28% 14%;               /* #1a1f2e */
+    --card-foreground: 225 57% 96%;    /* #f0f2f8 */
+    --border: 225 25% 22%;             /* #2a3045 */
+    --input: 225 25% 22%;              /* #2a3045 */
+    --ring: 33 93% 54%;                /* #f7931a gold */
+    --primary: 33 93% 54%;             /* #f7931a gold */
+    --primary-foreground: 228 22% 7%;  /* #0f1117 dark */
+    --secondary: 226 26% 19%;          /* slightly lighter card */
+    --secondary-foreground: 225 57% 96%;
+    --muted: 226 28% 14%;              /* #1a1f2e */
+    --muted-foreground: 228 18% 66%;   /* #9aa0b8 */
+    --accent: 226 26% 19%;
+    --accent-foreground: 225 57% 96%;
     --destructive: 0 72% 51%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 225 57% 96%;
     --success: 142 71% 45%;
-    --success-foreground: 222 47% 11%;
+    --success-foreground: 228 22% 7%;
     --warning: 38 92% 50%;
-    --warning-foreground: 222 47% 11%;
-    --radius: 0.5rem;
+    --warning-foreground: 228 22% 7%;
+    --radius: 0.75rem;
   }
 }
 

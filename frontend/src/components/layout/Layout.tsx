@@ -53,8 +53,8 @@ export function Layout({ children }: LayoutProps) {
       >
         {/* Logo */}
         <div className="flex items-center gap-2.5 px-5 h-14 border-b border-border shrink-0">
-          <TrendingUp className="h-5 w-5 text-primary" />
-          <span className="font-bold text-sm tracking-wide">Préstamos & Trading</span>
+          <TrendingUp className="h-5 w-5 text-primary drop-shadow-[0_0_6px_hsl(var(--primary)/0.8)]" />
+          <span className="font-bold text-sm tracking-wide text-foreground">Préstamos & Trading</span>
           <button
             className="ml-auto lg:hidden text-muted-foreground hover:text-foreground"
             onClick={() => setSidebarOpen(false)}
@@ -72,10 +72,10 @@ export function Layout({ children }: LayoutProps) {
               end={end}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                  'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-150',
                   isActive
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                    ? 'bg-primary/15 text-primary border border-primary/30 shadow-[0_0_12px_hsl(var(--primary)/0.15)]'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground border border-transparent',
                 )
               }
               onClick={() => setSidebarOpen(false)}
@@ -111,7 +111,7 @@ export function Layout({ children }: LayoutProps) {
             <Menu className="h-5 w-5" />
           </button>
           <div className="flex items-center gap-2 ml-3">
-            <TrendingUp className="h-4 w-4 text-primary" />
+            <TrendingUp className="h-4 w-4 text-primary drop-shadow-[0_0_6px_hsl(var(--primary)/0.8)]" />
             <span className="font-bold text-sm">Préstamos & Trading</span>
           </div>
         </header>
