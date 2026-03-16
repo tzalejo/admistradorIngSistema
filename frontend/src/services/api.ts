@@ -10,6 +10,7 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
 
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true',
     ...customHeaders,
   };
 
@@ -29,6 +30,7 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true',
             Authorization: `Bearer ${refreshToken}`,
           },
           body: JSON.stringify({}),
