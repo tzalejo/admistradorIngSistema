@@ -10,11 +10,12 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    port: parseInt(process.env.FRONTEND_PORT || '5173', 10),
     host: true,
+    allowedHosts: true,
     proxy: {
       '/api': {
-        target: 'http://backend:3000',
+        target: process.env.BACKEND_URL || 'http://backend:3000',
         changeOrigin: true,
       },
     },
