@@ -30,7 +30,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { operacionesService } from '@/services/operaciones.service';
 import { dashboardService } from '@/services/dashboard.service';
 import { monedasService, type MonedaItem } from '@/services/monedas.service';
-import { formatMonto, formatDate } from '@/lib/format';
+import { formatMonto, formatDate, todayStr } from '@/lib/format';
 import type { Operacion, CreateOperacionDto, Moneda } from '@/types';
 
 function OperacionBadge({ op }: { op: Operacion }) {
@@ -311,7 +311,7 @@ function NuevaOperacionDialog({
   onClose: () => void;
   onCreated: () => void;
 }) {
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayStr();
 
   // ── Estado modo cambio/gasto ──
   const monedasOrdenadas = [...monedas].sort((a, b) =>

@@ -40,7 +40,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { prestamosService } from '@/services/prestamos.service';
-import { formatMonto, formatDate, formatTasa, diasHastaVencimiento } from '@/lib/format';
+import { formatMonto, formatDate, formatTasa, diasHastaVencimiento, todayStr } from '@/lib/format';
 import type {
   Prestamo,
   CuotaInteres,
@@ -129,7 +129,7 @@ export function PrestamoDetallePage() {
             new Date(
               new Date(prestamo.fechaInicio).getTime() +
                 prestamo.plazoMeses * 30 * 24 * 60 * 60 * 1000,
-            ).toISOString(),
+            ),
           )}
         />
       </div>
@@ -573,8 +573,7 @@ function PagarCuotaDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const today = new Date().toISOString().split('T')[0];
-  const [fecha, setFecha] = useState(today);
+  const [fecha, setFecha] = useState(todayStr);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -651,8 +650,7 @@ function DevolverCapitalDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const today = new Date().toISOString().split('T')[0];
-  const [fecha, setFecha] = useState(today);
+  const [fecha, setFecha] = useState(todayStr);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 

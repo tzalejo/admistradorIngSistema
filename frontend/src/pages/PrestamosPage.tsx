@@ -23,7 +23,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { prestamosService } from '@/services/prestamos.service';
 import { monedasService, type MonedaItem } from '@/services/monedas.service';
-import { formatMonto, formatDate, formatTasa } from '@/lib/format';
+import { formatMonto, formatDate, formatTasa, todayStr } from '@/lib/format';
 import type { Prestamo, CreatePrestamoDto, TasaTipo, EstadoPrestamo } from '@/types';
 
 const ESTADO_BADGE: Record<EstadoPrestamo, { label: string; variant: 'default' | 'success' | 'destructive' | 'secondary' }> = {
@@ -182,7 +182,7 @@ export function PrestamosPage() {
 // ── Formulario nuevo préstamo ────────────────────────────────────────────────
 
 function NuevoPrestamoDialog({ monedas, onClose, onCreated }: { monedas: MonedaItem[]; onClose: () => void; onCreated: () => void }) {
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayStr();
   const [form, setForm] = useState<CreatePrestamoDto>({
     cliente: '',
     montoInicial: 0,
