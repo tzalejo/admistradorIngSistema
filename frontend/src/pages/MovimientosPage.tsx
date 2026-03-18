@@ -6,6 +6,8 @@ import {
   CreditCard,
   RefreshCw,
   Filter,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import {
   Select,
@@ -75,6 +77,7 @@ export function MovimientosPage() {
   const [tipoFilter, setTipoFilter] = useState<TipoFilter>('todos');
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
+  const [sortFecha, setSortFecha] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     dashboardService
@@ -83,13 +86,18 @@ export function MovimientosPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const filtered = movimientos.filter((m) => {
-    if (tipoFilter !== 'todos' && m.tipo !== tipoFilter) return false;
-    const fecha = m.fecha.slice(0, 10);
-    if (desde && fecha < desde) return false;
-    if (hasta && fecha > hasta) return false;
-    return true;
-  });
+  const filtered = movimientos
+    .filter((m) => {
+      if (tipoFilter !== 'todos' && m.tipo !== tipoFilter) return false;
+      const fecha = m.fecha.slice(0, 10);
+      if (desde && fecha < desde) return false;
+      if (hasta && fecha > hasta) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const diff = a.fecha.localeCompare(b.fecha);
+      return sortFecha === 'asc' ? diff : -diff;
+    });
 
   const hayFiltros = tipoFilter !== 'todos' || desde || hasta;
 
@@ -170,7 +178,19 @@ export function MovimientosPage() {
       <div className="rounded-lg border border-border bg-card overflow-hidden">
         {/* Header */}
         <div className="grid grid-cols-12 px-4 py-2.5 border-b border-border bg-muted/30 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          <div className="col-span-2">Fecha</div>
+          <div className="col-span-2">
+            <button
+              onClick={() => setSortFecha((s) => (s === 'asc' ? 'desc' : 'asc'))}
+              className="flex items-center gap-1 hover:text-foreground transition-colors"
+            >
+              Fecha
+              {sortFecha === 'asc' ? (
+                <ArrowUp className="h-3 w-3" />
+              ) : (
+                <ArrowDown className="h-3 w-3" />
+              )}
+            </button>
+          </div>
           <div className="col-span-4">Descripción</div>
           <div className="col-span-1">Tipo</div>
           <div className="col-span-1">Moneda</div>

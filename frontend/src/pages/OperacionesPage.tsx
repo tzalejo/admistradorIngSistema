@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, ArrowRight, AlertTriangle, Receipt, ArrowDownToLine } from 'lucide-react';
+import { Plus, Trash2, ArrowRight, AlertTriangle, Receipt, ArrowDownToLine, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -75,6 +75,7 @@ export function OperacionesPage() {
   const [capitalPorMoneda, setCapitalPorMoneda] = useState<Record<string, number>>({});
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
+  const [sortFecha, setSortFecha] = useState<'asc' | 'desc'>('desc');
 
   const loadCaja = () => dashboardService.getCaja().then(setCapitalPorMoneda);
 
@@ -101,12 +102,17 @@ export function OperacionesPage() {
     }
   };
 
-  const filteredOperaciones = operaciones.filter((op) => {
-    const fecha = op.fecha.slice(0, 10);
-    if (desde && fecha < desde) return false;
-    if (hasta && fecha > hasta) return false;
-    return true;
-  });
+  const filteredOperaciones = operaciones
+    .filter((op) => {
+      const fecha = op.fecha.slice(0, 10);
+      if (desde && fecha < desde) return false;
+      if (hasta && fecha > hasta) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const diff = a.fecha.localeCompare(b.fecha);
+      return sortFecha === 'asc' ? diff : -diff;
+    });
 
   const hayFiltros = desde || hasta;
 
@@ -148,7 +154,19 @@ export function OperacionesPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Fecha</TableHead>
+              <TableHead>
+                <button
+                  onClick={() => setSortFecha((s) => (s === 'asc' ? 'desc' : 'asc'))}
+                  className="flex items-center gap-1 hover:text-foreground transition-colors"
+                >
+                  Fecha
+                  {sortFecha === 'asc' ? (
+                    <ArrowUp className="h-3 w-3" />
+                  ) : (
+                    <ArrowDown className="h-3 w-3" />
+                  )}
+                </button>
+              </TableHead>
               <TableHead>Operación</TableHead>
               <TableHead>Entrega / Gasto / Ingreso</TableHead>
               <TableHead>Tasa</TableHead>
@@ -315,7 +333,7 @@ interface FormState {
 
 const MODOS: { key: ModoFormulario; label: string; icon: React.ReactNode }[] = [
   { key: 'cambio', label: 'Cambio de divisa', icon: <ArrowRight className="h-3.5 w-3.5" /> },
-  { key: 'gasto', label: 'Gasto / Pago', icon: <Receipt className="h-3.5 w-3.5" /> },
+  { key: 'gasto', label: 'Gasto', icon: <Receipt className="h-3.5 w-3.5" /> },
   { key: 'ingreso', label: 'Ingreso / Cobro', icon: <ArrowDownToLine className="h-3.5 w-3.5" /> },
 ];
 
