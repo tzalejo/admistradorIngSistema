@@ -2,7 +2,7 @@ export type Moneda = string;
 export type TasaTipo = 'porcentaje' | 'fijo';
 export type EstadoPrestamo = 'activo' | 'devuelto' | 'vencido';
 export type EstadoCuota = 'pendiente' | 'pagado';
-export type TipoOperacion = 'compra' | 'venta' | 'gasto';
+export type TipoOperacion = 'compra' | 'venta' | 'gasto' | 'ingreso';
 
 export interface CuotaInteres {
   id: string;
@@ -53,7 +53,7 @@ export interface Movimiento {
   id: string;
   fecha: string;
   descripcion: string;
-  tipo: 'ingreso' | 'egreso' | 'compra' | 'venta' | 'pago_interes' | 'devolucion' | 'gasto';
+  tipo: 'ingreso' | 'egreso' | 'compra' | 'venta' | 'pago_interes' | 'devolucion' | 'gasto' | 'ingreso_efectivo';
   moneda: Moneda;
   debe: number | null;
   haber: number | null;

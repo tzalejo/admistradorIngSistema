@@ -19,6 +19,7 @@ import { dashboardService } from '@/services/dashboard.service';
 import { formatMonto, formatDate } from '@/lib/format';
 import type { Movimiento } from '@/types';
 import { cn } from '@/lib/utils';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 
 type TipoFilter = Movimiento['tipo'] | 'todos';
 
@@ -61,12 +62,19 @@ const TIPO_CONFIG: Record<
     icon: <ArrowUpRight className="h-3.5 w-3.5" />,
     color: 'text-orange-400',
   },
+  ingreso_efectivo: {
+    label: 'Ingreso',
+    icon: <ArrowDownLeft className="h-3.5 w-3.5" />,
+    color: 'text-emerald-400',
+  },
 };
 
 export function MovimientosPage() {
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
   const [loading, setLoading] = useState(true);
   const [tipoFilter, setTipoFilter] = useState<TipoFilter>('todos');
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
 
   useEffect(() => {
     dashboardService
@@ -75,10 +83,15 @@ export function MovimientosPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const filtered =
-    tipoFilter === 'todos'
-      ? movimientos
-      : movimientos.filter((m) => m.tipo === tipoFilter);
+  const filtered = movimientos.filter((m) => {
+    if (tipoFilter !== 'todos' && m.tipo !== tipoFilter) return false;
+    const fecha = m.fecha.slice(0, 10);
+    if (desde && fecha < desde) return false;
+    if (hasta && fecha > hasta) return false;
+    return true;
+  });
+
+  const hayFiltros = tipoFilter !== 'todos' || desde || hasta;
 
   // Totales por moneda (haber - debe)
   const totales: Record<string, number> = {};
@@ -118,11 +131,11 @@ export function MovimientosPage() {
         </div>
       )}
 
-      {/* Filtro */}
-      <div className="flex items-center gap-2 max-w-xs">
+      {/* Filtros */}
+      <div className="flex flex-wrap items-center gap-3">
         <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
         <Select value={tipoFilter} onValueChange={(v) => setTipoFilter(v as TipoFilter)}>
-          <SelectTrigger>
+          <SelectTrigger className="w-48">
             <SelectValue placeholder="Todos los tipos" />
           </SelectTrigger>
           <SelectContent>
@@ -134,8 +147,23 @@ export function MovimientosPage() {
             <SelectItem value="pago_interes">Pago de intereses</SelectItem>
             <SelectItem value="devolucion">Devoluciones</SelectItem>
             <SelectItem value="gasto">Gastos</SelectItem>
+            <SelectItem value="ingreso_efectivo">Ingresos en efectivo</SelectItem>
           </SelectContent>
         </Select>
+        <DateRangePicker
+          desde={desde}
+          hasta={hasta}
+          onChange={(d, h) => { setDesde(d); setHasta(h); }}
+          placeholder="Filtrar por fecha"
+        />
+        {hayFiltros && (
+          <button
+            onClick={() => { setTipoFilter('todos'); setDesde(''); setHasta(''); }}
+            className="h-9 px-3 text-xs text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-muted/50 transition-colors"
+          >
+            Limpiar todo
+          </button>
+        )}
       </div>
 
       {/* Tabla debe/haber */}

@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { prestamosService } from '@/services/prestamos.service';
 import { monedasService, type MonedaItem } from '@/services/monedas.service';
 import { formatMonto, formatDate, formatTasa, todayStr } from '@/lib/format';
@@ -37,6 +38,8 @@ export function PrestamosPage() {
   const [monedas, setMonedas] = useState<MonedaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
 
@@ -64,11 +67,18 @@ export function PrestamosPage() {
     }
   };
 
-  const filtered = prestamos.filter(
-    (p) =>
+  const filtered = prestamos.filter((p) => {
+    const matchSearch =
       p.cliente.toLowerCase().includes(search.toLowerCase()) ||
-      p.moneda.toLowerCase().includes(search.toLowerCase()),
-  );
+      p.moneda.toLowerCase().includes(search.toLowerCase());
+    if (!matchSearch) return false;
+    const fecha = p.fechaInicio.slice(0, 10);
+    if (desde && fecha < desde) return false;
+    if (hasta && fecha > hasta) return false;
+    return true;
+  });
+
+  const hayFiltros = search || desde || hasta;
 
   return (
     <div className="space-y-5">
@@ -85,14 +95,30 @@ export function PrestamosPage() {
         </Button>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar por cliente o moneda..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por cliente o moneda..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 w-64"
+          />
+        </div>
+        <DateRangePicker
+          desde={desde}
+          hasta={hasta}
+          onChange={(d, h) => { setDesde(d); setHasta(h); }}
+          placeholder="Filtrar por inicio"
         />
+        {hayFiltros && (
+          <button
+            onClick={() => { setSearch(''); setDesde(''); setHasta(''); }}
+            className="h-9 px-3 text-xs text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-muted/50 transition-colors"
+          >
+            Limpiar
+          </button>
+        )}
       </div>
 
       <div className="rounded-lg border border-border bg-card overflow-hidden">
@@ -119,7 +145,7 @@ export function PrestamosPage() {
             {!loading && filtered.length === 0 && (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
-                  {search ? 'Sin resultados para esa búsqueda' : 'Sin préstamos registrados'}
+                  {hayFiltros ? 'Sin resultados para esos filtros' : 'Sin préstamos registrados'}
                 </TableCell>
               </TableRow>
             )}

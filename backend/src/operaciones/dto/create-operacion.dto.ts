@@ -12,7 +12,7 @@ import {
 import { TipoOperacion } from '../../common/enums/tipo-operacion.enum';
 
 export class CreateOperacionDto {
-  @ApiProperty({ enum: TipoOperacion, description: 'Tipo: compra, venta o gasto' })
+  @ApiProperty({ enum: TipoOperacion, description: 'Tipo: compra, venta, gasto o ingreso' })
   @IsEnum(TipoOperacion)
   tipo: TipoOperacion;
 
@@ -21,25 +21,25 @@ export class CreateOperacionDto {
   @IsNotEmpty()
   monedaOrigen: string;
 
-  @ApiPropertyOptional({ description: 'Código de moneda destino (no aplica para gastos)' })
-  @ValidateIf((o) => o.tipo !== TipoOperacion.GASTO)
+  @ApiPropertyOptional({ description: 'Código de moneda destino (no aplica para gastos ni ingresos)' })
+  @ValidateIf((o) => o.tipo !== TipoOperacion.GASTO && o.tipo !== TipoOperacion.INGRESO)
   @IsString()
   @IsNotEmpty()
   monedaDestino?: string;
 
-  @ApiProperty({ description: 'Cantidad de moneda entregada / monto del gasto' })
+  @ApiProperty({ description: 'Cantidad de moneda entregada / monto del gasto / monto del ingreso' })
   @IsNumber()
   @IsPositive()
   montoOrigen: number;
 
-  @ApiPropertyOptional({ description: 'Tasa de cambio aplicada (no aplica para gastos)' })
-  @ValidateIf((o) => o.tipo !== TipoOperacion.GASTO)
+  @ApiPropertyOptional({ description: 'Tasa de cambio aplicada (no aplica para gastos ni ingresos)' })
+  @ValidateIf((o) => o.tipo !== TipoOperacion.GASTO && o.tipo !== TipoOperacion.INGRESO)
   @IsNumber()
   @IsPositive()
   tasaCambio?: number;
 
-  @ApiPropertyOptional({ description: 'Cantidad de moneda recibida (no aplica para gastos)' })
-  @ValidateIf((o) => o.tipo !== TipoOperacion.GASTO)
+  @ApiPropertyOptional({ description: 'Cantidad de moneda recibida (no aplica para gastos ni ingresos)' })
+  @ValidateIf((o) => o.tipo !== TipoOperacion.GASTO && o.tipo !== TipoOperacion.INGRESO)
   @IsNumber()
   @IsPositive()
   montoDestino?: number;

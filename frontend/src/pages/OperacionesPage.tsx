@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, ArrowRight, AlertTriangle, Receipt } from 'lucide-react';
+import { Plus, Trash2, ArrowRight, AlertTriangle, Receipt, ArrowDownToLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { operacionesService } from '@/services/operaciones.service';
 import { dashboardService } from '@/services/dashboard.service';
 import { monedasService, type MonedaItem } from '@/services/monedas.service';
@@ -40,6 +41,16 @@ function OperacionBadge({ op }: { op: Operacion }) {
         <span className="flex items-center gap-1">
           <Receipt className="h-3 w-3" />
           gasto
+        </span>
+      </Badge>
+    );
+  }
+  if (op.tipo === 'ingreso') {
+    return (
+      <Badge variant="outline" className="border-emerald-500/50 text-emerald-400">
+        <span className="flex items-center gap-1">
+          <ArrowDownToLine className="h-3 w-3" />
+          ingreso
         </span>
       </Badge>
     );
@@ -62,6 +73,8 @@ export function OperacionesPage() {
   const [showForm, setShowForm] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [capitalPorMoneda, setCapitalPorMoneda] = useState<Record<string, number>>({});
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
 
   const loadCaja = () => dashboardService.getCaja().then(setCapitalPorMoneda);
 
@@ -88,12 +101,14 @@ export function OperacionesPage() {
     }
   };
 
-  const gananciaARS = operaciones.reduce((sum, op) => {
-    if (op.tipo === 'gasto' && op.monedaOrigen === 'ARS') return sum - op.montoOrigen;
-    if (op.monedaOrigen === 'ARS') return sum - op.montoOrigen;
-    if (op.monedaDestino === 'ARS' && op.montoDestino) return sum + op.montoDestino;
-    return sum;
-  }, 0);
+  const filteredOperaciones = operaciones.filter((op) => {
+    const fecha = op.fecha.slice(0, 10);
+    if (desde && fecha < desde) return false;
+    if (hasta && fecha > hasta) return false;
+    return true;
+  });
+
+  const hayFiltros = desde || hasta;
 
   return (
     <div className="space-y-5">
@@ -110,23 +125,24 @@ export function OperacionesPage() {
       </div>
 
       {operaciones.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="rounded-lg border border-border bg-card p-4">
             <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Total operaciones</p>
-            <p className="text-xl font-bold">{operaciones.length}</p>
+            <p className="text-xl font-bold">{filteredOperaciones.length}</p>
           </div>
           <div className="rounded-lg border border-border bg-card p-4">
             <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Cambios de divisa</p>
-            <p className="text-xl font-bold">{operaciones.filter((o) => o.tipo !== 'gasto').length}</p>
-          </div>
-          <div className="rounded-lg border border-border bg-card p-4">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Balance neto ARS</p>
-            <p className={`text-xl font-bold font-mono ${gananciaARS >= 0 ? 'text-success' : 'text-destructive'}`}>
-              {gananciaARS >= 0 ? '+' : ''}{formatMonto(gananciaARS, 'ARS')}
-            </p>
+            <p className="text-xl font-bold">{filteredOperaciones.filter((o) => o.tipo !== 'gasto' && o.tipo !== 'ingreso').length}</p>
           </div>
         </div>
       )}
+
+      <DateRangePicker
+        desde={desde}
+        hasta={hasta}
+        onChange={(d, h) => { setDesde(d); setHasta(h); }}
+        placeholder="Filtrar por fecha"
+      />
 
       <div className="rounded-lg border border-border bg-card overflow-hidden">
         <Table>
@@ -134,7 +150,7 @@ export function OperacionesPage() {
             <TableRow>
               <TableHead>Fecha</TableHead>
               <TableHead>Operación</TableHead>
-              <TableHead>Entrega / Gasto</TableHead>
+              <TableHead>Entrega / Gasto / Ingreso</TableHead>
               <TableHead>Tasa</TableHead>
               <TableHead>Recibe</TableHead>
               <TableHead>Notas</TableHead>
@@ -149,21 +165,23 @@ export function OperacionesPage() {
                 </TableCell>
               </TableRow>
             )}
-            {!loading && operaciones.length === 0 && (
+            {!loading && filteredOperaciones.length === 0 && (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
-                  Sin operaciones registradas
+                  {hayFiltros ? 'Sin operaciones en ese rango de fechas' : 'Sin operaciones registradas'}
                 </TableCell>
               </TableRow>
             )}
-            {operaciones.map((op) => (
+            {filteredOperaciones.map((op) => (
               <TableRow key={op.id}>
                 <TableCell>{formatDate(op.fecha)}</TableCell>
                 <TableCell><OperacionBadge op={op} /></TableCell>
                 <TableCell className="font-mono text-sm">
-                  <span className="text-destructive/80">
-                    -{formatMonto(op.montoOrigen, op.monedaOrigen)}
-                  </span>
+                  {op.tipo === 'ingreso' ? (
+                    <span className="text-emerald-400">+{formatMonto(op.montoOrigen, op.monedaOrigen)}</span>
+                  ) : (
+                    <span className="text-destructive/80">-{formatMonto(op.montoOrigen, op.monedaOrigen)}</span>
+                  )}
                 </TableCell>
                 <TableCell className="font-mono text-xs text-muted-foreground">
                   {formatTasaDisplay(op.tasaCambio, op.monedaOrigen, op.monedaDestino)}
@@ -283,7 +301,7 @@ function MoneyInput({
 
 // ── Formulario nueva operación ────────────────────────────────────────────────
 
-type ModoFormulario = 'cambio' | 'gasto';
+type ModoFormulario = 'cambio' | 'gasto' | 'ingreso';
 
 interface FormState {
   monedaOrigen: string;
@@ -298,6 +316,7 @@ interface FormState {
 const MODOS: { key: ModoFormulario; label: string; icon: React.ReactNode }[] = [
   { key: 'cambio', label: 'Cambio de divisa', icon: <ArrowRight className="h-3.5 w-3.5" /> },
   { key: 'gasto', label: 'Gasto / Pago', icon: <Receipt className="h-3.5 w-3.5" /> },
+  { key: 'ingreso', label: 'Ingreso / Cobro', icon: <ArrowDownToLine className="h-3.5 w-3.5" /> },
 ];
 
 function NuevaOperacionDialog({
@@ -334,6 +353,11 @@ function NuevaOperacionDialog({
   const [gastoMonto, setGastoMonto] = useState<number>(0);
   const [gastoNotas, setGastoNotas] = useState('');
   const [gastoFecha, setGastoFecha] = useState(today);
+
+  const [ingresoMoneda, setIngresoMoneda] = useState<string>(primeraConBalance);
+  const [ingresoMonto, setIngresoMonto] = useState<number>(0);
+  const [ingresoNotas, setIngresoNotas] = useState('');
+  const [ingresoFecha, setIngresoFecha] = useState(today);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -426,6 +450,18 @@ function NuevaOperacionDialog({
         };
         await operacionesService.create(dto);
 
+      } else if (modo === 'ingreso') {
+        if (ingresoMonto <= 0) { setError('El monto debe ser mayor a 0'); return; }
+        if (!ingresoNotas.trim()) { setError('Ingresá un concepto para el ingreso'); return; }
+        const dto: CreateOperacionDto = {
+          tipo: 'ingreso',
+          monedaOrigen: ingresoMoneda,
+          montoOrigen: ingresoMonto,
+          fecha: ingresoFecha,
+          notas: ingresoNotas,
+        };
+        await operacionesService.create(dto);
+
       }
 
       onCreated();
@@ -447,8 +483,8 @@ function NuevaOperacionDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Selector de modo — grilla 2×2 */}
-          <div className="grid grid-cols-2 gap-1 rounded-md border border-border overflow-hidden">
+          {/* Selector de modo — grilla 3 columnas */}
+          <div className="grid grid-cols-3 gap-1 rounded-md border border-border overflow-hidden">
             {MODOS.map((m) => (
               <button
                 key={m.key}
@@ -616,6 +652,42 @@ function NuevaOperacionDialog({
                   placeholder="Ej: Luz, Gas, Hosting, Proveedor X..."
                   value={gastoNotas}
                   onChange={(e) => setGastoNotas(e.target.value)}
+                  rows={2}
+                />
+              </div>
+            </>
+          )}
+
+          {/* ── Ingreso ── */}
+          {modo === 'ingreso' && (
+            <>
+              <div className="space-y-1.5">
+                <Label>Fecha</Label>
+                <Input type="date" value={ingresoFecha} onChange={(e) => setIngresoFecha(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Moneda</Label>
+                  <Select value={ingresoMoneda} onValueChange={setIngresoMoneda}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {monedas.map((m) => (
+                        <SelectItem key={m.codigo} value={m.codigo}>{m.codigo} — {m.nombre}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Monto</Label>
+                  <MoneyInput value={ingresoMonto} onChange={setIngresoMonto} />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Concepto / Servicio</Label>
+                <Textarea
+                  placeholder="Ej: Consultoría, Desarrollo web, Trabajo X..."
+                  value={ingresoNotas}
+                  onChange={(e) => setIngresoNotas(e.target.value)}
                   rows={2}
                 />
               </div>

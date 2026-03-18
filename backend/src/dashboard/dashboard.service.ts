@@ -12,7 +12,7 @@ export interface Movimiento {
   id: string;
   fecha: Date;
   descripcion: string;
-  tipo: 'ingreso' | 'egreso' | 'compra' | 'venta' | 'pago_interes' | 'devolucion' | 'gasto';
+  tipo: 'ingreso' | 'egreso' | 'compra' | 'venta' | 'pago_interes' | 'devolucion' | 'gasto' | 'ingreso_efectivo';
   moneda: string;
   debe: number | null;
   haber: number | null;
@@ -109,7 +109,19 @@ export class DashboardService {
     // 3. Operaciones de compra/venta/gasto
     const operaciones = await this.operacionRepo.find({ order: { fecha: 'ASC' } });
     for (const op of operaciones) {
-      if (op.tipo === 'gasto') {
+      if (op.tipo === 'ingreso') {
+        movimientos.push({
+          id: `op-ingreso-${op.id}`,
+          fecha: op.fecha,
+          descripcion: op.notas ? `Ingreso: ${op.notas}` : `Ingreso ${op.monedaOrigen}`,
+          tipo: 'ingreso_efectivo',
+          moneda: op.monedaOrigen,
+          debe: null,
+          haber: op.montoOrigen,
+          referenciaTipo: 'operacion',
+          referenciaId: op.id,
+        });
+      } else if (op.tipo === 'gasto') {
         movimientos.push({
           id: `op-gasto-${op.id}`,
           fecha: op.fecha,
@@ -242,9 +254,13 @@ export class DashboardService {
     }
 
     for (const op of operaciones) {
-      caja[op.monedaOrigen] = (caja[op.monedaOrigen] ?? 0) - op.montoOrigen;
-      if (op.monedaDestino && op.montoDestino !== null) {
-        caja[op.monedaDestino] = (caja[op.monedaDestino] ?? 0) + op.montoDestino;
+      if (op.tipo === 'ingreso') {
+        caja[op.monedaOrigen] = (caja[op.monedaOrigen] ?? 0) + op.montoOrigen;
+      } else {
+        caja[op.monedaOrigen] = (caja[op.monedaOrigen] ?? 0) - op.montoOrigen;
+        if (op.monedaDestino && op.montoDestino !== null) {
+          caja[op.monedaDestino] = (caja[op.monedaDestino] ?? 0) + op.montoDestino;
+        }
       }
     }
 
