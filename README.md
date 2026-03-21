@@ -1,4 +1,4 @@
-# Préstamos App
+# Préstamos Ingenieria de sistema.
 
 Plataforma de gestión de préstamos de criptomonedas y monedas fiat.
 
