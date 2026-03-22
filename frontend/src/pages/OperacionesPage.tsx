@@ -367,6 +367,7 @@ function NuevaOperacionDialog({
     fecha: today,
   });
   const [porcentaje, setPorcentaje] = useState<number>(0);
+  const [porcentajeRaw, setPorcentajeRaw] = useState<string>('');
   const [gastoMoneda, setGastoMoneda] = useState<string>(primeraConBalance);
   const [gastoMonto, setGastoMonto] = useState<number>(0);
   const [gastoNotas, setGastoNotas] = useState('');
@@ -418,10 +419,14 @@ function NuevaOperacionDialog({
     setForm((f) => ({ ...f, tasaCambio: v, montoDestino: destino }));
   };
 
-  const handlePorcentajeChange = (pct: number) => {
-    const tasa = 1 + pct / 100;
-    setPorcentaje(pct);
-    setForm((f) => ({ ...f, tasaCambio: tasa, montoDestino: f.montoOrigen * tasa }));
+  const handlePorcentajeChange = (raw: string) => {
+    setPorcentajeRaw(raw);
+    const parsed = parseFloat(raw);
+    if (!isNaN(parsed) && raw !== '-' && !raw.endsWith('.') && !raw.endsWith(',')) {
+      const tasa = 1 + parsed / 100;
+      setPorcentaje(parsed);
+      setForm((f) => ({ ...f, tasaCambio: tasa, montoDestino: f.montoOrigen * tasa }));
+    }
   };
 
   const handleMonedaDestinoChange = (moneda: string) => {
@@ -578,8 +583,8 @@ function NuevaOperacionDialog({
                   <div className="relative">
                     <Input
                       type="number" step="0.0001" placeholder="ej: -1.3"
-                      value={porcentaje === 0 ? '' : porcentaje}
-                      onChange={(e) => handlePorcentajeChange(parseFloat(e.target.value) || 0)}
+                      value={porcentajeRaw}
+                      onChange={(e) => handlePorcentajeChange(e.target.value)}
                       className="pr-10"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-mono">%</span>

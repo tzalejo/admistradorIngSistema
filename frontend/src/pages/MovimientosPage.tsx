@@ -119,9 +119,9 @@ export function MovimientosPage() {
 
       {/* Resumen balances */}
       {!loading && Object.entries(totales).length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${Object.entries(totales).length}, minmax(0, 1fr))` }}>
           {Object.entries(totales).map(([moneda, balance]) => (
-            <div key={moneda} className="rounded-lg border border-border bg-card p-4">
+            <div key={moneda} className="rounded-lg border border-border bg-card p-4 text-center">
               <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
                 Balance {moneda}
               </p>
