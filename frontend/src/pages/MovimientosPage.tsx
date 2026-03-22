@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -78,6 +78,11 @@ export function MovimientosPage() {
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
   const [sortFecha, setSortFecha] = useState<'asc' | 'desc'>('desc');
+
+  const handleDateRange = useCallback((d: string, h: string) => {
+    setDesde(d);
+    setHasta(h);
+  }, []);
 
   useEffect(() => {
     dashboardService
@@ -161,7 +166,7 @@ export function MovimientosPage() {
         <DateRangePicker
           desde={desde}
           hasta={hasta}
-          onChange={(d, h) => { setDesde(d); setHasta(h); }}
+          onChange={handleDateRange}
           placeholder="Filtrar por fecha"
         />
         {hayFiltros && (

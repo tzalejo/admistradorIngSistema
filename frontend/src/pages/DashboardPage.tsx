@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   HandCoins,
@@ -175,7 +175,7 @@ export function DashboardPage() {
   );
 }
 
-function StatCard({
+const StatCard = memo(function StatCard({
   title,
   value,
   icon,
@@ -195,7 +195,7 @@ function StatCard({
       <p className="text-2xl font-bold">{value}</p>
     </div>
   );
-}
+});
 
 function LoadingSkeleton() {
   return (

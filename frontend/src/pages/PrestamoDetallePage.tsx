@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -419,7 +419,7 @@ function HistorialPagos({
   );
 }
 
-function InfoCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
+const InfoCard = memo(function InfoCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="rounded-lg border border-border bg-card p-4">
       <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">{label}</p>
@@ -427,7 +427,7 @@ function InfoCard({ label, value, sub }: { label: string; value: string; sub?: s
       {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
     </div>
   );
-}
+});
 
 function EditCuotaDialog({
   cuota,
@@ -573,7 +573,7 @@ function PagarCuotaDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [fecha, setFecha] = useState(todayStr);
+  const [fecha, setFecha] = useState(todayStr());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -650,7 +650,7 @@ function DevolverCapitalDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [fecha, setFecha] = useState(todayStr);
+  const [fecha, setFecha] = useState(todayStr());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 

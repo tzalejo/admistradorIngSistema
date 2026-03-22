@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Eye, Trash2, AlertTriangle, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -41,6 +41,11 @@ export function PrestamosPage() {
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
   const [showForm, setShowForm] = useState(false);
+
+  const handleDateRange = useCallback((d: string, h: string) => {
+    setDesde(d);
+    setHasta(h);
+  }, []);
   const [deleting, setDeleting] = useState<string | null>(null);
 
   const load = () => {
@@ -108,7 +113,7 @@ export function PrestamosPage() {
         <DateRangePicker
           desde={desde}
           hasta={hasta}
-          onChange={(d, h) => { setDesde(d); setHasta(h); }}
+          onChange={handleDateRange}
           placeholder="Filtrar por inicio"
         />
         {hayFiltros && (
