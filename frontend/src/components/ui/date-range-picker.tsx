@@ -187,7 +187,10 @@ export function DateRangePicker({
     } else {
       // Ya hay inicio, ahora se elige el fin
       if (d === desde) {
-        onChange('', '');
+        // Mismo día = filtrar solo ese día
+        onChange(d, d);
+        setOpen(false);
+        setHover('');
       } else if (d < desde) {
         onChange(d, desde);
         setOpen(false);
@@ -208,7 +211,9 @@ export function DateRangePicker({
 
   // Label del botón
   const label =
-    desde || hasta
+    desde && hasta && desde === hasta
+      ? fmtDisplay(desde)
+      : desde || hasta
       ? `${fmtDisplay(desde) || '…'} → ${fmtDisplay(hasta) || '…'}`
       : placeholder;
 

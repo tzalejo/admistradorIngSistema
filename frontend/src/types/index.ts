@@ -53,6 +53,7 @@ export interface Operacion {
 export interface Movimiento {
   id: number;
   fecha: string;
+  hora?: string;
   descripcion: string;
   tipo: 'ingreso' | 'egreso' | 'compra' | 'venta' | 'pago_interes' | 'devolucion' | 'gasto' | 'ingreso_efectivo';
   moneda: Moneda;
@@ -78,6 +79,18 @@ export interface ResumenDashboard {
     moneda: Moneda;
     fechaVencimiento: string;
   }>;
+}
+
+export interface CierreCaja {
+  id: number;
+  fecha: string;
+  idMoneda: number;
+  moneda: { id: number; codigo: string; nombre: string };
+  saldo: number;
+  entrada: number;
+  salida: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ResumenPrestamo {

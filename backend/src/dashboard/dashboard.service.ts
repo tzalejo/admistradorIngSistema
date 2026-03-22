@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Between, Repository } from 'typeorm';
 import { Prestamo } from '../prestamos/entities/prestamo.entity';
 import { CuotaInteres } from '../prestamos/entities/cuota-interes.entity';
 import { Operacion } from '../operaciones/entities/operacion.entity';
@@ -11,6 +11,7 @@ import { MonedasService } from '../monedas/monedas.service';
 export interface Movimiento {
   id: string;
   fecha: Date;
+  hora?: string;
   descripcion: string;
   tipo: 'ingreso' | 'egreso' | 'compra' | 'venta' | 'pago_interes' | 'devolucion' | 'gasto' | 'ingreso_efectivo';
   moneda: string;
@@ -113,6 +114,7 @@ export class DashboardService {
         movimientos.push({
           id: `op-ingreso-${op.id}`,
           fecha: op.fecha,
+          hora: op.hora ?? undefined,
           descripcion: op.notas ? `Ingreso: ${op.notas}` : `Ingreso ${op.monedaOrigen}`,
           tipo: 'ingreso_efectivo',
           moneda: op.monedaOrigen,
@@ -125,6 +127,7 @@ export class DashboardService {
         movimientos.push({
           id: `op-gasto-${op.id}`,
           fecha: op.fecha,
+          hora: op.hora ?? undefined,
           descripcion: op.notas ? `Gasto: ${op.notas}` : `Gasto ${op.monedaOrigen}`,
           tipo: 'gasto',
           moneda: op.monedaOrigen,
@@ -137,6 +140,7 @@ export class DashboardService {
         movimientos.push({
           id: `op-salida-${op.id}`,
           fecha: op.fecha,
+          hora: op.hora ?? undefined,
           descripcion: `Cambio ${op.monedaOrigen} → ${op.monedaDestino} (entrega)`,
           tipo: op.tipo === 'compra' ? 'compra' : 'venta',
           moneda: op.monedaOrigen,
@@ -148,6 +152,7 @@ export class DashboardService {
         movimientos.push({
           id: `op-entrada-${op.id}`,
           fecha: op.fecha,
+          hora: op.hora ?? undefined,
           descripcion: `Cambio ${op.monedaOrigen} → ${op.monedaDestino} @ ${op.tasaCambio}`,
           tipo: op.tipo === 'compra' ? 'compra' : 'venta',
           moneda: op.monedaDestino!,
@@ -195,11 +200,18 @@ export class DashboardService {
 
     const operacionesTotales = await this.operacionRepo.count();
 
+    // Rango: desde el 1° del mes actual hasta el último día del mes siguiente
+    const hoy = new Date();
+    const inicioMesActual = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    const finMesSiguiente = new Date(hoy.getFullYear(), hoy.getMonth() + 2, 0);
+
     const proximasCuotasRaw = await this.cuotaRepo.find({
-      where: { estado: EstadoCuota.PENDIENTE },
+      where: {
+        estado: EstadoCuota.PENDIENTE,
+        fechaVencimiento: Between(inicioMesActual, finMesSiguiente),
+      },
       relations: ['prestamo'],
       order: { fechaVencimiento: 'ASC' },
-      take: 10,
     });
 
     const proximasCuotas = proximasCuotasRaw.map((c) => ({

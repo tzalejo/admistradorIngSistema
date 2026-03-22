@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   HandCoins,
@@ -7,27 +7,88 @@ import {
   TrendingUp,
   AlertTriangle,
   CheckCircle2,
+  Archive,
+  TrendingDown,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from '@/components/ui/table';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { dashboardService } from '@/services/dashboard.service';
+import { cierreCajaService } from '@/services/cierre-caja.service';
 import { formatMonto, formatDate, diasHastaVencimiento } from '@/lib/format';
-import type { ResumenDashboard, Moneda } from '@/types';
+import type { ResumenDashboard, CierreCaja, Moneda } from '@/types';
 
-const MONEDAS: Moneda[] = ['ARS', 'USDT', 'USD', 'BTC'];
+const MONEDAS: Moneda[] = ['ARS', 'USDT', 'USD'];
 
 export function DashboardPage() {
   const [resumen, setResumen] = useState<ResumenDashboard | null>(null);
+  const [historial, setHistorial] = useState<CierreCaja[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cerrando, setCerrando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
+
+  const handleDateRange = useCallback((d: string, h: string) => {
+    setDesde(d);
+    setHasta(h);
+  }, []);
+
+  // Fechas únicas ordenadas DESC (el Set preserva el orden de inserción)
+  const todasLasFechas = [...new Set(historial.map((c) => c.fecha.slice(0, 10)))];
+
+  const fechasFiltradas = todasLasFechas.filter((f) => {
+    if (desde && f < desde) return false;
+    if (hasta && f > hasta) return false;
+    return true;
+  });
+
+  const fechasVisibles = desde || hasta ? fechasFiltradas : fechasFiltradas.slice(0, 7);
+
+  const getCierre = (fecha: string, codigo: string) =>
+    historial.find((c) => c.fecha.slice(0, 10) === fecha && c.moneda.codigo === codigo);
+
+  const getFechaAnterior = (fecha: string) => {
+    const idx = todasLasFechas.indexOf(fecha);
+    return idx < todasLasFechas.length - 1 ? todasLasFechas[idx + 1] : undefined;
+  };
 
   useEffect(() => {
-    dashboardService
-      .getResumen()
-      .then(setResumen)
+    Promise.all([
+      dashboardService.getResumen(),
+      cierreCajaService.getHistorial(),
+    ])
+      .then(([res, hist]) => {
+        setResumen(res);
+        setHistorial(hist);
+      })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
+
+  const handleCerrarCaja = async () => {
+    setCerrando(true);
+    try {
+      const nuevos = await cierreCajaService.cerrar();
+      const fecha = nuevos[0]?.fecha;
+      setHistorial((prev) => {
+        const sinHoy = prev.filter((c) => c.fecha.slice(0, 10) !== fecha?.slice(0, 10));
+        return [...nuevos, ...sinHoy];
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error al cerrar caja');
+    } finally {
+      setCerrando(false);
+    }
+  };
 
   if (loading) return <LoadingSkeleton />;
   if (error) return <ErrorState message={error} />;
@@ -35,9 +96,15 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground text-sm mt-1">Resumen de tu cartera de préstamos</p>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <p className="text-muted-foreground text-sm mt-1">Resumen de tu cartera de préstamos</p>
+        </div>
+        <Button onClick={handleCerrarCaja} disabled={cerrando} className="gap-2">
+          <Archive className="h-4 w-4" />
+          {cerrando ? 'Cerrando...' : 'Cierre de caja'}
+        </Button>
       </div>
 
       {/* Stats cards */}
@@ -85,7 +152,7 @@ export function DashboardPage() {
                 </div>
               ) : null,
             )}
-            {MONEDAS.every((m) => resumen.capitalTotalPorMoneda[m] === 0) && (
+            {MONEDAS.every((m) => !resumen.capitalTotalPorMoneda[m]) && (
               <p className="text-sm text-muted-foreground">Sin capital activo</p>
             )}
           </div>
@@ -106,11 +173,78 @@ export function DashboardPage() {
                 </div>
               ) : null,
             )}
-            {MONEDAS.every((m) => resumen.interesesPendientesPorMoneda[m] === 0) && (
+            {MONEDAS.every((m) => !resumen.interesesPendientesPorMoneda[m]) && (
               <p className="text-sm text-muted-foreground">Sin intereses pendientes</p>
             )}
           </div>
         </div>
+      </div>
+
+      {/* Historial de cierres de caja */}
+      <div className="rounded-lg border border-border bg-card">
+          <div className="px-5 py-4 border-b border-border space-y-3">
+            <div>
+              <h2 className="font-semibold">Historial de cierres de caja</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {desde || hasta ? `${fechasVisibles.length} resultados` : `Últimos ${fechasVisibles.length} cierres`}
+              </p>
+            </div>
+            <DateRangePicker desde={desde} hasta={hasta} onChange={handleDateRange} placeholder="Filtrar por fecha" />
+          </div>
+          {historial.length === 0 ? (
+            <div className="flex items-center gap-2 px-5 py-6 text-sm text-muted-foreground">
+              <Archive className="h-4 w-4" />
+              Aún no hay cierres registrados. Presioná &quot;Cierre de caja&quot; para generar el primero.
+            </div>
+          ) : fechasVisibles.length === 0 ? (
+            <div className="px-5 py-6 text-sm text-muted-foreground">
+              Sin cierres en ese rango de fechas.
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-b-lg">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead className="text-right">ARS</TableHead>
+                  <TableHead className="text-right">USDT</TableHead>
+                  <TableHead className="text-right">USD</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {fechasVisibles.map((fecha) => {
+                  const fechaAnterior = getFechaAnterior(fecha);
+                  return (
+                    <TableRow key={fecha}>
+                      <TableCell className="font-medium">{formatDate(fecha)}</TableCell>
+                      <TableCell className="text-right font-mono text-sm">
+                        <SaldoConDelta
+                          value={getCierre(fecha, 'ARS')?.saldo ?? 0}
+                          prevValue={fechaAnterior ? getCierre(fechaAnterior, 'ARS')?.saldo : undefined}
+                          moneda="ARS"
+                        />
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm">
+                        <SaldoConDelta
+                          value={getCierre(fecha, 'USDT')?.saldo ?? 0}
+                          prevValue={fechaAnterior ? getCierre(fechaAnterior, 'USDT')?.saldo : undefined}
+                          moneda="USDT"
+                        />
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm">
+                        <SaldoConDelta
+                          value={getCierre(fecha, 'USD')?.saldo ?? 0}
+                          prevValue={fechaAnterior ? getCierre(fechaAnterior, 'USD')?.saldo : undefined}
+                          moneda="USD"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+            </div>
+          )}
       </div>
 
       {/* Próximas cuotas */}
@@ -172,6 +306,22 @@ export function DashboardPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+/** Muestra el saldo y un indicador de variación respecto al día anterior */
+function SaldoConDelta({ value, prevValue, moneda }: { value: number; prevValue?: number; moneda: string }) {
+  const delta = prevValue !== undefined ? value - prevValue : null;
+  return (
+    <span className="inline-flex flex-col items-end">
+      <span>{formatMonto(value, moneda)}</span>
+      {delta !== null && delta !== 0 && (
+        <span className={`text-xs flex items-center gap-0.5 ${delta > 0 ? 'text-success' : 'text-destructive'}`}>
+          {delta > 0 ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
+          {delta > 0 ? '+' : ''}{formatMonto(delta, moneda)}
+        </span>
+      )}
+    </span>
   );
 }
 

@@ -9,5 +9,6 @@ import { MonedasModule } from '../monedas/monedas.module';
   imports: [PrestamosModule, OperacionesModule, MonedasModule],
   controllers: [DashboardController],
   providers: [DashboardService],
+  exports: [DashboardService],
 })
 export class DashboardModule {}

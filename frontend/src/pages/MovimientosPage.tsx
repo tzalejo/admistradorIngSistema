@@ -221,7 +221,10 @@ export function MovimientosPage() {
                 className="grid grid-cols-12 px-4 py-3 hover:bg-muted/20 transition-colors text-sm items-center"
               >
                 <div className="col-span-2 text-muted-foreground text-xs font-mono">
-                  {formatDate(m.fecha)}
+                  <span>{formatDate(m.fecha)}</span>
+                  {m.hora && (
+                    <span className="block text-muted-foreground/60">{m.hora.slice(0, 5)}</span>
+                  )}
                 </div>
                 <div className="col-span-4 min-w-0 pr-3">
                   <p className="truncate font-medium text-xs">{m.descripcion}</p>
