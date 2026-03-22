@@ -437,6 +437,21 @@ function NuevaOperacionDialog({
     }
   };
 
+  const handleMontoDestinoChange = (v: number) => {
+    setForm((f) => ({ ...f, montoDestino: v }));
+    if (form.montoOrigen <= 0 || v <= 0) return;
+    if (usarPorcentaje) {
+      const tasa = v / form.montoOrigen;
+      const pct = (tasa - 1) * 100;
+      setPorcentaje(pct);
+      setPorcentajeRaw(pct.toFixed(4).replace(/\.?0+$/, ''));
+      setForm((f) => ({ ...f, tasaCambio: tasa, montoDestino: v }));
+    } else {
+      const tasa = form.monedaOrigen === 'ARS' ? form.montoOrigen / v : v / form.montoOrigen;
+      setForm((f) => ({ ...f, tasaCambio: tasa, montoDestino: v }));
+    }
+  };
+
   const handleMonedaDestinoChange = (moneda: string) => {
     const nuevaEsPct = esPorPorcentaje(form.monedaOrigen, moneda);
     if (nuevaEsPct) {
@@ -589,6 +604,30 @@ function NuevaOperacionDialog({
                 </div>
               </div>
 
+              <div className="rounded-md border border-border p-3 space-y-3">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Recibo</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>Moneda</Label>
+                    <Select value={form.monedaDestino} onValueChange={handleMonedaDestinoChange}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {monedasDestino.map((m) => (
+                          <SelectItem key={m.codigo} value={m.codigo}>{m.codigo} — {m.nombre}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Cantidad (calculada)</Label>
+                    <MoneyInput
+                      value={form.montoDestino}
+                      onChange={handleMontoDestinoChange}
+                    />
+                  </div>
+                </div>
+              </div>
+
               {usarPorcentaje ? (
                 <div className="space-y-1.5">
                   <Label>
@@ -625,30 +664,6 @@ function NuevaOperacionDialog({
                   />
                 </div>
               )}
-
-              <div className="rounded-md border border-border p-3 space-y-3">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Recibo</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label>Moneda</Label>
-                    <Select value={form.monedaDestino} onValueChange={handleMonedaDestinoChange}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {monedasDestino.map((m) => (
-                          <SelectItem key={m.codigo} value={m.codigo}>{m.codigo} — {m.nombre}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Cantidad (calculada)</Label>
-                    <MoneyInput
-                      value={form.montoDestino}
-                      onChange={(v) => set('montoDestino', v)}
-                    />
-                  </div>
-                </div>
-              </div>
 
               <div className="space-y-1.5">
                 <Label>Notas (opcional)</Label>
