@@ -17,7 +17,7 @@ export interface Movimiento {
   debe: number | null;
   haber: number | null;
   referenciaTipo: 'prestamo' | 'cuota' | 'operacion';
-  referenciaId: string;
+  referenciaId: number;
   cliente?: string;
 }
 
@@ -28,8 +28,8 @@ export interface ResumenDashboard {
   interesesPagadosPorMoneda: Record<string, number>;
   operacionesTotales: number;
   proximasCuotas: Array<{
-    cuotaId: string;
-    prestamoId: string;
+    cuotaId: number;
+    prestamoId: number;
     cliente: string;
     mesNumero: number;
     montoPago: number;

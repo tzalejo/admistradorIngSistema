@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsPositive,
   IsString,
+  Matches,
   ValidateIf,
 } from 'class-validator';
 import { TipoOperacion } from '../../common/enums/tipo-operacion.enum';
@@ -47,6 +48,11 @@ export class CreateOperacionDto {
   @ApiProperty({ description: 'Fecha de la operación (YYYY-MM-DD)' })
   @IsDateString()
   fecha: string;
+
+  @ApiProperty({ description: 'Hora de la operación (HH:MM)' })
+  @IsString()
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, { message: 'hora debe tener formato HH:MM' })
+  hora: string;
 
   @ApiPropertyOptional({ description: 'Notas / concepto del gasto' })
   @IsString()

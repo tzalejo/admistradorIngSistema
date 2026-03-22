@@ -1,9 +1,9 @@
 import { api } from './api';
 
 export interface MonedaItem {
+  id: number;
   codigo: string;
   nombre: string;
-  orden: number;
 }
 
 export const monedasService = {

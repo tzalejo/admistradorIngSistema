@@ -221,24 +221,50 @@ function NuevoPrestamoDialog({ monedas, onClose, onCreated }: { monedas: MonedaI
   // Strings locales para inputs decimales (evita que "0.xxx" se borre al tipear el 0)
   const [montoStr, setMontoStr] = useState('');
   const [tasaStr, setTasaStr] = useState('1');
+  const [montoError, setMontoError] = useState('');
+  const [tasaError, setTasaError] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   const set = (field: keyof CreatePrestamoDto, value: unknown) =>
     setForm((f) => ({ ...f, [field]: value }));
 
+  // Solo permite dígitos y un separador decimal (. o ,)
+  const sanitizeDecimal = (v: string) =>
+    v.replace(/[^0-9.,]/g, '').replace(/([.,].*)[.,]/g, '$1');
+
   const parseDecimal = (v: string) => parseFloat(v.replace(',', '.'));
 
   const handleMontoChange = (v: string) => {
-    setMontoStr(v);
-    const num = parseDecimal(v);
-    if (!isNaN(num) && num >= 0) set('montoInicial', num);
+    const sanitized = sanitizeDecimal(v);
+    setMontoStr(sanitized);
+    const num = parseDecimal(sanitized);
+    if (sanitized === '' || isNaN(num)) {
+      setMontoError('Ingresá un número válido');
+      set('montoInicial', 0);
+    } else if (num <= 0) {
+      setMontoError('Debe ser mayor a 0');
+      set('montoInicial', 0);
+    } else {
+      setMontoError('');
+      set('montoInicial', num);
+    }
   };
 
   const handleTasaChange = (v: string) => {
-    setTasaStr(v);
-    const num = parseDecimal(v);
-    if (!isNaN(num) && num >= 0) set('tasaInicial', num);
+    const sanitized = sanitizeDecimal(v);
+    setTasaStr(sanitized);
+    const num = parseDecimal(sanitized);
+    if (sanitized === '' || isNaN(num)) {
+      setTasaError('Ingresá un número válido');
+      set('tasaInicial', 0);
+    } else if (num <= 0) {
+      setTasaError('Debe ser mayor a 0');
+      set('tasaInicial', 0);
+    } else {
+      setTasaError('');
+      set('tasaInicial', num);
+    }
   };
 
   // Calcular cuota preview
@@ -291,7 +317,9 @@ function NuevoPrestamoDialog({ monedas, onClose, onCreated }: { monedas: MonedaI
                 placeholder="0"
                 value={montoStr}
                 onChange={(e) => handleMontoChange(e.target.value)}
+                className={montoError ? 'border-destructive focus-visible:ring-destructive' : ''}
               />
+              {montoError && <p className="text-xs text-destructive">{montoError}</p>}
             </div>
             <div className="space-y-1.5">
               <Label>Moneda</Label>
@@ -336,7 +364,9 @@ function NuevoPrestamoDialog({ monedas, onClose, onCreated }: { monedas: MonedaI
                 placeholder="0"
                 value={tasaStr}
                 onChange={(e) => handleTasaChange(e.target.value)}
+                className={tasaError ? 'border-destructive focus-visible:ring-destructive' : ''}
               />
+              {tasaError && <p className="text-xs text-destructive">{tasaError}</p>}
             </div>
           </div>
 

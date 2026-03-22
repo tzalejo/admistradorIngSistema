@@ -8,7 +8,7 @@ import {
   Param,
   Patch,
   Post,
-  ParseUUIDPipe,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { OperacionesService } from './operaciones.service';
@@ -34,14 +34,14 @@ export class OperacionesController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Obtener una operación' })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
+  findOne(@Param('id', ParseIntPipe) id: number) {
     return this.operacionesService.findOne(id);
   }
 
   @Patch(':id')
   @ApiOperation({ summary: 'Actualizar una operación' })
   update(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateOperacionDto,
   ) {
     return this.operacionesService.update(id, dto);
@@ -50,7 +50,7 @@ export class OperacionesController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Eliminar una operación' })
-  remove(@Param('id', ParseUUIDPipe) id: string) {
+  remove(@Param('id', ParseIntPipe) id: number) {
     return this.operacionesService.remove(id);
   }
 }

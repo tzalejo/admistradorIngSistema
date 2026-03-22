@@ -8,7 +8,7 @@ import {
   Param,
   Patch,
   Post,
-  ParseUUIDPipe,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { PrestamosService } from './prestamos.service';
@@ -35,20 +35,20 @@ export class PrestamosController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Obtener un préstamo con sus cuotas' })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
+  findOne(@Param('id', ParseIntPipe) id: number) {
     return this.prestamosService.findOne(id);
   }
 
   @Get(':id/resumen')
   @ApiOperation({ summary: 'Resumen financiero de un préstamo' })
-  getResumen(@Param('id', ParseUUIDPipe) id: string) {
+  getResumen(@Param('id', ParseIntPipe) id: number) {
     return this.prestamosService.getResumenPrestamo(id);
   }
 
   @Patch(':id')
   @ApiOperation({ summary: 'Actualizar estado/datos de un préstamo' })
   update(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdatePrestamoDto,
   ) {
     return this.prestamosService.update(id, dto);
@@ -57,7 +57,7 @@ export class PrestamosController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Eliminar un préstamo' })
-  remove(@Param('id', ParseUUIDPipe) id: string) {
+  remove(@Param('id', ParseIntPipe) id: number) {
     return this.prestamosService.remove(id);
   }
 
@@ -65,14 +65,14 @@ export class PrestamosController {
 
   @Get(':id/cuotas')
   @ApiOperation({ summary: 'Listar cuotas de un préstamo' })
-  findCuotas(@Param('id', ParseUUIDPipe) id: string) {
+  findCuotas(@Param('id', ParseIntPipe) id: number) {
     return this.prestamosService.findCuotas(id);
   }
 
   @Patch('cuotas/:cuotaId')
   @ApiOperation({ summary: 'Actualizar una cuota (tasa, pago, estado)' })
   updateCuota(
-    @Param('cuotaId', ParseUUIDPipe) cuotaId: string,
+    @Param('cuotaId', ParseIntPipe) cuotaId: number,
     @Body() dto: UpdateCuotaDto,
   ) {
     return this.prestamosService.updateCuota(cuotaId, dto);

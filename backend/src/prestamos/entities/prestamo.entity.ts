@@ -15,8 +15,8 @@ import { CuotaInteres } from './cuota-interes.entity';
 
 @Entity('prestamos')
 export class Prestamo {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn()
+  id: number;
 
   // Nombre del prestamista (quien nos da el dinero)
   @Column({ length: 255 })

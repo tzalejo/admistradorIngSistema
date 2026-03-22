@@ -4,7 +4,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 
 export interface JwtPayload {
-  sub: string;
+  sub: number;
   email: string;
 }
 

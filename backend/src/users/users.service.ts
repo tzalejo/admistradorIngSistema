@@ -38,7 +38,7 @@ export class UsersService {
     });
   }
 
-  async findOne(id: string): Promise<User> {
+  async findOne(id: number): Promise<User> {
     const user = await this.usersRepository.findOne({ where: { id } });
     if (!user) {
       throw new NotFoundException(`Usuario con id ${id} no encontrado`);
@@ -50,7 +50,7 @@ export class UsersService {
     return this.usersRepository.findOne({ where: { email } });
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
+  async update(id: number, updateUserDto: UpdateUserDto): Promise<User> {
     const user = await this.findOne(id);
 
     if (updateUserDto.password) {
@@ -61,11 +61,11 @@ export class UsersService {
     return this.usersRepository.save(user);
   }
 
-  async updateRefreshToken(id: string, refreshToken: string | null): Promise<void> {
+  async updateRefreshToken(id: number, refreshToken: string | null): Promise<void> {
     await this.usersRepository.update(id, { refreshToken });
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: number): Promise<void> {
     const user = await this.findOne(id);
     await this.usersRepository.remove(user);
   }

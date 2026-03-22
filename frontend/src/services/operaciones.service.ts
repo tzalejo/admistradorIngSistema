@@ -5,9 +5,9 @@ export interface UpdateOperacionDto extends Partial<CreateOperacionDto> {}
 
 export const operacionesService = {
   getAll: () => api.get<Operacion[]>('/operaciones'),
-  getOne: (id: string) => api.get<Operacion>(`/operaciones/${id}`),
+  getOne: (id: number) => api.get<Operacion>(`/operaciones/${id}`),
   create: (data: CreateOperacionDto) => api.post<Operacion>('/operaciones', data),
-  update: (id: string, data: UpdateOperacionDto) =>
+  update: (id: number, data: UpdateOperacionDto) =>
     api.patch<Operacion>(`/operaciones/${id}`, data),
-  delete: (id: string) => api.delete<void>(`/operaciones/${id}`),
+  delete: (id: number) => api.delete<void>(`/operaciones/${id}`),
 };

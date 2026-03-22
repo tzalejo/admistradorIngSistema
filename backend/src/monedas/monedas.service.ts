@@ -4,9 +4,9 @@ import { Repository } from 'typeorm';
 import { Moneda } from './entities/moneda.entity';
 
 const SEED_MONEDAS = [
-  { codigo: 'ARS', nombre: 'Peso Argentino', orden: 1 },
-  { codigo: 'USDT', nombre: 'Tether USD', orden: 2 },
-  { codigo: 'USD', nombre: 'Dólar Estadounidense', orden: 3 },
+  { codigo: 'ARS', nombre: 'Peso Argentino' },
+  { codigo: 'USDT', nombre: 'Tether USD' },
+  { codigo: 'USD', nombre: 'Dólar Estadounidense' },
 ];
 
 @Injectable()
@@ -24,7 +24,7 @@ export class MonedasService implements OnModuleInit {
   }
 
   findAll(): Promise<Moneda[]> {
-    return this.monedaRepo.find({ order: { orden: 'ASC', codigo: 'ASC' } });
+    return this.monedaRepo.find({ order: { codigo: 'ASC' } });
   }
 
   async getCodigos(): Promise<string[]> {

@@ -80,7 +80,7 @@ export class PrestamosService {
     });
   }
 
-  async findOne(id: string): Promise<Prestamo> {
+  async findOne(id: number): Promise<Prestamo> {
     const prestamo = await this.prestamoRepo.findOne({
       where: { id },
       relations: ['cuotas'],
@@ -90,7 +90,7 @@ export class PrestamosService {
     return prestamo;
   }
 
-  async update(id: string, dto: UpdatePrestamoDto): Promise<Prestamo> {
+  async update(id: number, dto: UpdatePrestamoDto): Promise<Prestamo> {
     const prestamo = await this.findOne(id);
 
     if (dto.estado === EstadoPrestamo.DEVUELTO && !dto.fechaDevolucion) {
@@ -111,14 +111,14 @@ export class PrestamosService {
     return this.findOne(id);
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: number): Promise<void> {
     const prestamo = await this.findOne(id);
     await this.prestamoRepo.remove(prestamo);
   }
 
   // --- Cuotas ---
 
-  async findCuotas(prestamoId: string): Promise<CuotaInteres[]> {
+  async findCuotas(prestamoId: number): Promise<CuotaInteres[]> {
     await this.findOne(prestamoId); // valida que exista
     return this.cuotaRepo.find({
       where: { prestamoId },
@@ -126,7 +126,7 @@ export class PrestamosService {
     });
   }
 
-  async updateCuota(id: string, dto: UpdateCuotaDto): Promise<CuotaInteres> {
+  async updateCuota(id: number, dto: UpdateCuotaDto): Promise<CuotaInteres> {
     const cuota = await this.cuotaRepo.findOne({ where: { id } });
     if (!cuota) throw new NotFoundException(`Cuota ${id} no encontrada`);
 
@@ -147,7 +147,7 @@ export class PrestamosService {
   }
 
   // Resumen financiero de un préstamo específico
-  async getResumenPrestamo(id: string) {
+  async getResumenPrestamo(id: number) {
     const prestamo = await this.findOne(id);
     const cuotas = prestamo.cuotas ?? [];
 

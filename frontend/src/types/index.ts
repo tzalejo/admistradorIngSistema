@@ -5,8 +5,8 @@ export type EstadoCuota = 'pendiente' | 'pagado';
 export type TipoOperacion = 'compra' | 'venta' | 'gasto' | 'ingreso';
 
 export interface CuotaInteres {
-  id: string;
-  prestamoId: string;
+  id: number;
+  prestamoId: number;
   mesNumero: number;
   tasaAplicada: number;
   montoPago: number;
@@ -19,7 +19,7 @@ export interface CuotaInteres {
 }
 
 export interface Prestamo {
-  id: string;
+  id: number;
   cliente: string;
   montoInicial: number;
   moneda: Moneda;
@@ -36,7 +36,7 @@ export interface Prestamo {
 }
 
 export interface Operacion {
-  id: string;
+  id: number;
   tipo: TipoOperacion;
   monedaOrigen: Moneda;
   monedaDestino: Moneda | null;
@@ -44,13 +44,14 @@ export interface Operacion {
   tasaCambio: number | null;
   montoDestino: number | null;
   fecha: string;
+  hora: string;
   notas: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface Movimiento {
-  id: string;
+  id: number;
   fecha: string;
   descripcion: string;
   tipo: 'ingreso' | 'egreso' | 'compra' | 'venta' | 'pago_interes' | 'devolucion' | 'gasto' | 'ingreso_efectivo';
@@ -58,7 +59,7 @@ export interface Movimiento {
   debe: number | null;
   haber: number | null;
   referenciaTipo: 'prestamo' | 'cuota' | 'operacion';
-  referenciaId: string;
+  referenciaId: number;
   cliente?: string;
 }
 
@@ -69,8 +70,8 @@ export interface ResumenDashboard {
   interesesPagadosPorMoneda: Record<Moneda, number>;
   operacionesTotales: number;
   proximasCuotas: Array<{
-    cuotaId: string;
-    prestamoId: string;
+    cuotaId: number;
+    prestamoId: number;
     cliente: string;
     mesNumero: number;
     montoPago: number;
@@ -109,6 +110,7 @@ export interface CreateOperacionDto {
   tasaCambio?: number;
   montoDestino?: number;
   fecha: string;
+  hora: string;
   notas?: string;
 }
 

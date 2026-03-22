@@ -40,11 +40,11 @@ export class AuthService {
     return tokens;
   }
 
-  async logout(userId: string): Promise<void> {
+  async logout(userId: number): Promise<void> {
     await this.usersService.updateRefreshToken(userId, null);
   }
 
-  async refreshTokens(userId: string, refreshToken: string): Promise<TokensDto> {
+  async refreshTokens(userId: number, refreshToken: string): Promise<TokensDto> {
     const user = await this.usersService.findOne(userId);
 
     if (!user || !user.refreshToken) {
@@ -62,7 +62,7 @@ export class AuthService {
     return tokens;
   }
 
-  private async generateTokens(userId: string, email: string): Promise<TokensDto> {
+  private async generateTokens(userId: number, email: string): Promise<TokensDto> {
     const payload = { sub: userId, email };
 
     const [accessToken, refreshToken] = await Promise.all([
@@ -79,7 +79,7 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
-  private async updateRefreshToken(userId: string, refreshToken: string): Promise<void> {
+  private async updateRefreshToken(userId: number, refreshToken: string): Promise<void> {
     const hashedRefreshToken = await bcrypt.hash(refreshToken, 12);
     await this.usersService.updateRefreshToken(userId, hashedRefreshToken);
   }

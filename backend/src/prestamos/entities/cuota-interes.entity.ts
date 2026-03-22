@@ -11,16 +11,16 @@ import { Prestamo } from './prestamo.entity';
 
 @Entity('cuotas_interes')
 export class CuotaInteres {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn()
+  id: number;
 
   @ManyToOne(() => Prestamo, (prestamo) => prestamo.cuotas, {
     onDelete: 'CASCADE',
   })
   prestamo: Prestamo;
 
-  @Column({ name: 'prestamo_id', type: 'varchar', nullable: true })
-  prestamoId: string;
+  @Column({ name: 'prestamo_id', type: 'int', nullable: true })
+  prestamoId: number;
 
   // Número de mes dentro del préstamo (1, 2, 3...)
   @Column({ name: 'mes_numero', type: 'int' })

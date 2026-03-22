@@ -71,6 +71,7 @@ export class OperacionesService {
       tasaCambio: dto.tasaCambio ?? null,
       montoDestino: dto.montoDestino ?? null,
       fecha: parseISO(dto.fecha),
+      hora: dto.hora,
       notas: dto.notas ?? null,
     });
 
@@ -84,13 +85,13 @@ export class OperacionesService {
     });
   }
 
-  async findOne(id: string): Promise<Operacion> {
+  async findOne(id: number): Promise<Operacion> {
     const op = await this.operacionRepo.findOne({ where: { id } });
     if (!op) throw new NotFoundException(`Operación ${id} no encontrada`);
     return op;
   }
 
-  async update(id: string, dto: UpdateOperacionDto): Promise<Operacion> {
+  async update(id: number, dto: UpdateOperacionDto): Promise<Operacion> {
     const op = await this.findOne(id);
 
     Object.assign(op, {
@@ -101,6 +102,7 @@ export class OperacionesService {
       ...(dto.tasaCambio !== undefined && { tasaCambio: dto.tasaCambio }),
       ...(dto.montoDestino !== undefined && { montoDestino: dto.montoDestino }),
       ...(dto.fecha !== undefined && { fecha: parseISO(dto.fecha) }),
+      ...(dto.hora !== undefined && { hora: dto.hora }),
       ...(dto.notas !== undefined && { notas: dto.notas }),
     });
 
@@ -108,7 +110,7 @@ export class OperacionesService {
     return this.findOne(id);
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: number): Promise<void> {
     const op = await this.findOne(id);
     await this.operacionRepo.remove(op);
   }

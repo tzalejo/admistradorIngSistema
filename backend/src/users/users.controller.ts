@@ -1,4 +1,4 @@
-import { Controller, Get, Param, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Param, ParseIntPipe } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 
@@ -16,7 +16,7 @@ export class UsersController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Obtener usuario por ID' })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
+  findOne(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.findOne(id);
   }
 }

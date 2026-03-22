@@ -2,15 +2,17 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { TipoOperacion } from '../../common/enums/tipo-operacion.enum';
 
 @Entity('operaciones')
+@Index('idx_operaciones_fecha_hora', ['fecha', 'hora'])
 export class Operacion {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn()
+  id: number;
 
   @Column({ type: 'enum', enum: TipoOperacion })
   tipo: TipoOperacion;
@@ -62,6 +64,9 @@ export class Operacion {
 
   @Column({ type: 'date' })
   fecha: Date;
+
+  @Column({ type: 'time' })
+  hora: string;
 
   @Column({ type: 'text', nullable: true })
   notas: string | null;

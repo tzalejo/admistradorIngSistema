@@ -71,7 +71,7 @@ export function OperacionesPage() {
   const [monedas, setMonedas] = useState<MonedaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [deleting, setDeleting] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<number | null>(null);
   const [capitalPorMoneda, setCapitalPorMoneda] = useState<Record<string, number>>({});
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
@@ -90,7 +90,7 @@ export function OperacionesPage() {
   useEffect(() => { loadCaja(); }, []);
   useEffect(() => { monedasService.getAll().then(setMonedas); }, []);
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: number) => {
     if (!confirm('¿Eliminar esta operación?')) return;
     setDeleting(id);
     try {
@@ -192,7 +192,10 @@ export function OperacionesPage() {
             )}
             {filteredOperaciones.map((op) => (
               <TableRow key={op.id}>
-                <TableCell>{formatDate(op.fecha)}</TableCell>
+                <TableCell>
+                  <div>{formatDate(op.fecha)}</div>
+                  {op.hora && <div className="text-xs text-muted-foreground">{op.hora.slice(0, 5)}</div>}
+                </TableCell>
                 <TableCell><OperacionBadge op={op} /></TableCell>
                 <TableCell className="font-mono text-sm">
                   {op.tipo === 'ingreso' ? (
@@ -357,6 +360,8 @@ function NuevaOperacionDialog({
   const primeraConBalance = monedasOrdenadas[0]?.codigo ?? 'ARS';
   const segundaDistinta = monedasOrdenadas.find((m) => m.codigo !== primeraConBalance)?.codigo ?? 'USDT';
 
+  const nowHora = () => new Date().toTimeString().slice(0, 5);
+
   const [modo, setModo] = useState<ModoFormulario>('cambio');
   const [form, setForm] = useState<FormState>({
     monedaOrigen: primeraConBalance,
@@ -366,17 +371,20 @@ function NuevaOperacionDialog({
     montoDestino: 0,
     fecha: today,
   });
+  const [cambioHora, setCambioHora] = useState(nowHora());
   const [porcentaje, setPorcentaje] = useState<number>(0);
   const [porcentajeRaw, setPorcentajeRaw] = useState<string>('');
   const [gastoMoneda, setGastoMoneda] = useState<string>(primeraConBalance);
   const [gastoMonto, setGastoMonto] = useState<number>(0);
   const [gastoNotas, setGastoNotas] = useState('');
   const [gastoFecha, setGastoFecha] = useState(today);
+  const [gastoHora, setGastoHora] = useState(nowHora());
 
   const [ingresoMoneda, setIngresoMoneda] = useState<string>(primeraConBalance);
   const [ingresoMonto, setIngresoMonto] = useState<number>(0);
   const [ingresoNotas, setIngresoNotas] = useState('');
   const [ingresoFecha, setIngresoFecha] = useState(today);
+  const [ingresoHora, setIngresoHora] = useState(nowHora());
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -457,6 +465,7 @@ function NuevaOperacionDialog({
           tasaCambio: form.tasaCambio,
           montoDestino: form.montoDestino,
           fecha: form.fecha,
+          hora: cambioHora,
           notas: form.notas,
         };
         await operacionesService.create(dto);
@@ -469,6 +478,7 @@ function NuevaOperacionDialog({
           monedaOrigen: gastoMoneda,
           montoOrigen: gastoMonto,
           fecha: gastoFecha,
+          hora: gastoHora,
           notas: gastoNotas,
         };
         await operacionesService.create(dto);
@@ -481,6 +491,7 @@ function NuevaOperacionDialog({
           monedaOrigen: ingresoMoneda,
           montoOrigen: ingresoMonto,
           fecha: ingresoFecha,
+          hora: ingresoHora,
           notas: ingresoNotas,
         };
         await operacionesService.create(dto);
@@ -528,9 +539,15 @@ function NuevaOperacionDialog({
           {/* ── Cambio de divisa ── */}
           {modo === 'cambio' && (
             <>
-              <div className="space-y-1.5">
-                <Label>Fecha</Label>
-                <Input type="date" value={form.fecha} onChange={(e) => set('fecha', e.target.value)} />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Fecha</Label>
+                  <Input type="date" value={form.fecha} onChange={(e) => set('fecha', e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Hora</Label>
+                  <Input type="time" value={cambioHora} onChange={(e) => setCambioHora(e.target.value)} />
+                </div>
               </div>
 
               <div className="rounded-md border border-border p-3 space-y-3">
@@ -648,9 +665,15 @@ function NuevaOperacionDialog({
           {/* ── Gasto ── */}
           {modo === 'gasto' && (
             <>
-              <div className="space-y-1.5">
-                <Label>Fecha</Label>
-                <Input type="date" value={gastoFecha} onChange={(e) => setGastoFecha(e.target.value)} />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Fecha</Label>
+                  <Input type="date" value={gastoFecha} onChange={(e) => setGastoFecha(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Hora</Label>
+                  <Input type="time" value={gastoHora} onChange={(e) => setGastoHora(e.target.value)} />
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
@@ -684,9 +707,15 @@ function NuevaOperacionDialog({
           {/* ── Ingreso ── */}
           {modo === 'ingreso' && (
             <>
-              <div className="space-y-1.5">
-                <Label>Fecha</Label>
-                <Input type="date" value={ingresoFecha} onChange={(e) => setIngresoFecha(e.target.value)} />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Fecha</Label>
+                  <Input type="date" value={ingresoFecha} onChange={(e) => setIngresoFecha(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Hora</Label>
+                  <Input type="time" value={ingresoHora} onChange={(e) => setIngresoHora(e.target.value)} />
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">

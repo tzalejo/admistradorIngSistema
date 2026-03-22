@@ -32,7 +32,7 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Cerrar sesión' })
-  logout(@CurrentUser('id') userId: string) {
+  logout(@CurrentUser('id') userId: number) {
     return this.authService.logout(userId);
   }
 
@@ -43,7 +43,7 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Refrescar tokens' })
   refreshTokens(
-    @CurrentUser('id') userId: string,
+    @CurrentUser('id') userId: number,
     @CurrentUser('refreshToken') refreshToken: string,
   ): Promise<TokensDto> {
     return this.authService.refreshTokens(userId, refreshToken);
