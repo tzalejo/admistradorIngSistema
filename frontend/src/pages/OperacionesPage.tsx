@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useState } from 'react';
-import { Plus, Trash2, ArrowRight, Receipt, ArrowDownToLine, ArrowUp, ArrowDown } from 'lucide-react';
+import { Plus, Trash2, Pencil, ArrowRight, Receipt, ArrowDownToLine, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -17,6 +17,7 @@ import { monedasService, type MonedaItem } from '@/services/monedas.service';
 import { formatMonto, formatDate } from '@/lib/format';
 import type { Operacion, Moneda } from '@/types';
 import { NuevaOperacionDialog } from '@/components/operaciones/NuevaOperacionDialog';
+import { EditarOperacionDialog } from '@/components/operaciones/EditarOperacionDialog';
 import { formatTasaDisplay } from '@/components/operaciones/operaciones-helpers';
 
 const OperacionBadge = memo(function OperacionBadge({ op }: { op: Operacion }) {
@@ -56,6 +57,7 @@ export function OperacionesPage() {
   const [monedas, setMonedas] = useState<MonedaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editingOp, setEditingOp] = useState<Operacion | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [capitalPorMoneda, setCapitalPorMoneda] = useState<Record<string, number>>({});
   const [desde, setDesde] = useState('');
@@ -84,11 +86,8 @@ export function OperacionesPage() {
     setDeleting(id);
     try {
       await operacionesService.delete(id);
-      const [ops, caja] = await Promise.all([
-        operacionesService.getAll(),
-        dashboardService.getCaja(),
-      ]);
-      setOperaciones(ops);
+      setOperaciones((prev) => prev.filter((op) => op.id !== id));
+      const caja = await dashboardService.getCaja();
       setCapitalPorMoneda(caja);
     } finally {
       setDeleting(null);
@@ -108,6 +107,16 @@ export function OperacionesPage() {
     });
 
   const hayFiltros = desde || hasta;
+
+  // Solo se puede eliminar la última operación registrada (la más reciente por fecha+hora)
+  const lastOperacionId = operaciones.reduce<number | null>((lastId, op) => {
+    if (lastId === null) return op.id;
+    const last = operaciones.find((o) => o.id === lastId)!;
+    const cmpFecha = op.fecha.localeCompare(last.fecha);
+    if (cmpFecha > 0) return op.id;
+    if (cmpFecha === 0 && (op.hora ?? '') > (last.hora ?? '')) return op.id;
+    return lastId;
+  }, null);
 
   return (
     <div className="space-y-5">
@@ -165,7 +174,7 @@ export function OperacionesPage() {
               <TableHead>Tasa</TableHead>
               <TableHead>Recibe</TableHead>
               <TableHead>Notas</TableHead>
-              <TableHead className="w-12">—</TableHead>
+              <TableHead className="w-12">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -211,15 +220,27 @@ export function OperacionesPage() {
                   {op.notas ?? '—'}
                 </TableCell>
                 <TableCell>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-destructive/60 hover:text-destructive hover:bg-destructive/10"
-                    disabled={deleting === op.id}
-                    onClick={() => handleDelete(op.id)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  {op.id === lastOperacionId && (
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-muted-foreground hover:text-foreground"
+                        onClick={() => setEditingOp(op)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive/60 hover:text-destructive hover:bg-destructive/10"
+                        disabled={deleting === op.id}
+                        onClick={() => handleDelete(op.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
@@ -234,6 +255,24 @@ export function OperacionesPage() {
           onClose={() => setShowForm(false)}
           onCreated={async () => {
             setShowForm(false);
+            const [ops, caja] = await Promise.all([
+              operacionesService.getAll(),
+              dashboardService.getCaja(),
+            ]);
+            setOperaciones(ops);
+            setCapitalPorMoneda(caja);
+          }}
+        />
+      )}
+
+      {editingOp && (
+        <EditarOperacionDialog
+          operacion={editingOp}
+          monedas={monedas}
+          capitalPorMoneda={capitalPorMoneda}
+          onClose={() => setEditingOp(null)}
+          onUpdated={async () => {
+            setEditingOp(null);
             const [ops, caja] = await Promise.all([
               operacionesService.getAll(),
               dashboardService.getCaja(),
