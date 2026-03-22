@@ -1,56 +1,72 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { parseISO } from 'date-fns';
 import { Operacion } from './entities/operacion.entity';
 import { CreateOperacionDto } from './dto/create-operacion.dto';
 import { UpdateOperacionDto } from './dto/update-operacion.dto';
-import { Prestamo } from '../prestamos/entities/prestamo.entity';
-import { CuotaInteres } from '../prestamos/entities/cuota-interes.entity';
 import { TipoOperacion } from '../common/enums/tipo-operacion.enum';
 import { EstadoPrestamo } from '../common/enums/estado-prestamo.enum';
 import { EstadoCuota } from '../common/enums/estado-cuota.enum';
 
 @Injectable()
 export class OperacionesService {
+  private readonly logger = new Logger(OperacionesService.name);
+
   constructor(
     @InjectRepository(Operacion)
     private readonly operacionRepo: Repository<Operacion>,
-    @InjectRepository(Prestamo)
-    private readonly prestamoRepo: Repository<Prestamo>,
-    @InjectRepository(CuotaInteres)
-    private readonly cuotaRepo: Repository<CuotaInteres>,
+    private readonly dataSource: DataSource,
   ) {}
 
   private async calcularSaldo(moneda: string): Promise<number> {
-    const [prestamos, operaciones, cuotasPagadas] = await Promise.all([
-      this.prestamoRepo.find(),
-      this.operacionRepo.find(),
-      this.cuotaRepo.find({ where: { estado: EstadoCuota.PAGADO }, relations: ['prestamo'] }),
-    ]);
+    // Capital neto de préstamos (activos suman, devueltos no)
+    const prestamosRow = await this.dataSource
+      .createQueryBuilder()
+      .select(
+        `COALESCE(SUM(CASE WHEN estado != '${EstadoPrestamo.DEVUELTO}' THEN monto_inicial ELSE 0 END), 0)`,
+        'capitalNeto',
+      )
+      .from('prestamos', 'p')
+      .where('p.moneda = :moneda', { moneda })
+      .getRawOne<{ capitalNeto: string }>();
 
-    let saldo = 0;
+    // Saldo de operaciones: ingresos suman, el resto resta/suma según moneda origen/destino
+    const opRow = await this.dataSource
+      .createQueryBuilder()
+      .select(
+        `COALESCE(SUM(CASE WHEN tipo = '${TipoOperacion.INGRESO}' AND moneda_origen = :moneda THEN monto_origen ELSE 0 END), 0)`,
+        'entradas',
+      )
+      .addSelect(
+        `COALESCE(SUM(CASE WHEN tipo != '${TipoOperacion.INGRESO}' AND moneda_origen = :moneda THEN monto_origen ELSE 0 END), 0)`,
+        'salidasOrigen',
+      )
+      .addSelect(
+        `COALESCE(SUM(CASE WHEN tipo != '${TipoOperacion.INGRESO}' AND moneda_destino = :moneda THEN monto_destino ELSE 0 END), 0)`,
+        'entradasDestino',
+      )
+      .from('operaciones', 'op')
+      .setParameter('moneda', moneda)
+      .getRawOne<{ entradas: string; salidasOrigen: string; entradasDestino: string }>();
 
-    for (const p of prestamos) {
-      if (p.moneda !== moneda) continue;
-      saldo += Number(p.montoInicial);
-      if (p.estado === EstadoPrestamo.DEVUELTO) saldo -= Number(p.montoInicial);
-    }
+    // Intereses ya cobrados (salen de caja)
+    const cuotasRow = await this.dataSource
+      .createQueryBuilder()
+      .select('COALESCE(SUM(ci.monto_pago), 0)', 'interesesPagados')
+      .from('cuotas_interes', 'ci')
+      .innerJoin('prestamos', 'p', 'p.id = ci.prestamo_id')
+      .where('ci.estado = :estado', { estado: EstadoCuota.PAGADO })
+      .andWhere('p.moneda = :moneda', { moneda })
+      .getRawOne<{ interesesPagados: string }>();
 
-    for (const op of operaciones) {
-      if (op.tipo === TipoOperacion.INGRESO && op.monedaOrigen === moneda) {
-        saldo += Number(op.montoOrigen);
-      } else if (op.tipo !== TipoOperacion.INGRESO) {
-        if (op.monedaOrigen === moneda) saldo -= Number(op.montoOrigen);
-        if (op.monedaDestino === moneda && op.montoDestino !== null) saldo += Number(op.montoDestino);
-      }
-    }
-
-    for (const c of cuotasPagadas) {
-      if (c.prestamo?.moneda === moneda) saldo -= Number(c.montoPago);
-    }
-
-    return saldo;
+    return (
+      Number(prestamosRow?.capitalNeto ?? 0) +
+      Number(opRow?.entradas ?? 0) -
+      Number(opRow?.salidasOrigen ?? 0) +
+      Number(opRow?.entradasDestino ?? 0) -
+      Number(cuotasRow?.interesesPagados ?? 0)
+    );
   }
 
   async create(dto: CreateOperacionDto): Promise<Operacion> {
@@ -76,6 +92,7 @@ export class OperacionesService {
     });
 
     const saved = await this.operacionRepo.save(operacion);
+    this.logger.log(`Operación creada: id=${saved.id}, tipo=${saved.tipo}, ${saved.montoOrigen} ${saved.monedaOrigen}`);
     return this.findOne(saved.id);
   }
 
@@ -113,5 +130,6 @@ export class OperacionesService {
   async remove(id: number): Promise<void> {
     const op = await this.findOne(id);
     await this.operacionRepo.remove(op);
+    this.logger.log(`Operación eliminada: id=${id}`);
   }
 }

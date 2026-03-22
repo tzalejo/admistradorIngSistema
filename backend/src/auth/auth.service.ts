@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ForbiddenException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ForbiddenException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -9,6 +9,8 @@ import { TokensDto } from './dto/tokens.dto';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
@@ -17,6 +19,7 @@ export class AuthService {
 
   async register(registerDto: RegisterDto): Promise<TokensDto> {
     const user = await this.usersService.create(registerDto);
+    this.logger.log(`Usuario registrado: ${user.email} (id=${user.id})`);
     const tokens = await this.generateTokens(user.id, user.email);
     await this.updateRefreshToken(user.id, tokens.refreshToken);
     return tokens;
@@ -26,21 +29,25 @@ export class AuthService {
     const user = await this.usersService.findByEmail(loginDto.email);
 
     if (!user) {
+      this.logger.warn(`Intento de login fallido: email no existe (${loginDto.email})`);
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
     const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
 
     if (!isPasswordValid) {
+      this.logger.warn(`Intento de login fallido: contraseña incorrecta (${loginDto.email})`);
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
+    this.logger.log(`Login exitoso: ${user.email} (id=${user.id})`);
     const tokens = await this.generateTokens(user.id, user.email);
     await this.updateRefreshToken(user.id, tokens.refreshToken);
     return tokens;
   }
 
   async logout(userId: number): Promise<void> {
+    this.logger.log(`Logout: userId=${userId}`);
     await this.usersService.updateRefreshToken(userId, null);
   }
 

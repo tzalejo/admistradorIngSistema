@@ -2,9 +2,10 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { addMonths, parseISO } from 'date-fns';
 import { Prestamo } from './entities/prestamo.entity';
 import { CuotaInteres } from './entities/cuota-interes.entity';
@@ -17,32 +18,47 @@ import { TasaTipo } from '../common/enums/tasa-tipo.enum';
 
 @Injectable()
 export class PrestamosService {
+  private readonly logger = new Logger(PrestamosService.name);
+
   constructor(
     @InjectRepository(Prestamo)
     private readonly prestamoRepo: Repository<Prestamo>,
     @InjectRepository(CuotaInteres)
     private readonly cuotaRepo: Repository<CuotaInteres>,
+    private readonly dataSource: DataSource,
   ) {}
 
   async create(dto: CreatePrestamoDto): Promise<Prestamo> {
-    const prestamo = this.prestamoRepo.create({
-      cliente: dto.cliente,
-      montoInicial: dto.montoInicial,
-      moneda: dto.moneda,
-      fechaInicio: parseISO(dto.fechaInicio),
-      plazoMeses: dto.plazoMeses,
-      tasaTipo: dto.tasaTipo,
-      tasaInicial: dto.tasaInicial,
-      notas: dto.notas ?? null,
-    });
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    const saved = await this.prestamoRepo.save(prestamo);
+    try {
+      const prestamo = queryRunner.manager.create(Prestamo, {
+        cliente: dto.cliente,
+        montoInicial: dto.montoInicial,
+        moneda: dto.moneda,
+        fechaInicio: parseISO(dto.fechaInicio),
+        plazoMeses: dto.plazoMeses,
+        tasaTipo: dto.tasaTipo,
+        tasaInicial: dto.tasaInicial,
+        notas: dto.notas ?? null,
+      });
 
-    // Generar cuotas automáticamente
-    const cuotas = this.generarCuotas(saved, dto);
-    await this.cuotaRepo.save(cuotas);
+      const saved = await queryRunner.manager.save(Prestamo, prestamo);
+      const cuotas = this.generarCuotas(saved, dto);
+      await queryRunner.manager.save(CuotaInteres, cuotas);
+      await queryRunner.commitTransaction();
 
-    return this.findOne(saved.id);
+      this.logger.log(`Préstamo creado: id=${saved.id}, cliente=${saved.cliente}, monto=${saved.montoInicial} ${saved.moneda}`);
+      return this.findOne(saved.id);
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      this.logger.error('Error al crear préstamo', error instanceof Error ? error.stack : String(error));
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   private generarCuotas(prestamo: Prestamo, dto: CreatePrestamoDto): Partial<CuotaInteres>[] {
