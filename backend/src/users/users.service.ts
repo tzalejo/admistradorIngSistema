@@ -5,12 +5,14 @@ import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { RolesService } from '../roles/roles.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
+    private readonly rolesService: RolesService,
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
@@ -24,9 +26,13 @@ export class UsersService {
 
     const hashedPassword = await bcrypt.hash(createUserDto.password, 12);
 
+    // Asignar rol operador por defecto
+    const rolOperador = await this.rolesService.findByNombre('operador');
+
     const user = this.usersRepository.create({
       ...createUserDto,
       password: hashedPassword,
+      idRol: rolOperador?.id ?? null,
     });
 
     return this.usersRepository.save(user);
@@ -34,7 +40,7 @@ export class UsersService {
 
   async findAll(): Promise<User[]> {
     return this.usersRepository.find({
-      select: ['id', 'email', 'firstName', 'lastName', 'isActive', 'createdAt'],
+      select: ['id', 'email', 'firstName', 'lastName', 'idRol', 'isActive', 'createdAt'],
     });
   }
 
@@ -63,6 +69,13 @@ export class UsersService {
 
   async updateRefreshToken(id: number, refreshToken: string | null): Promise<void> {
     await this.usersRepository.update(id, { refreshToken });
+  }
+
+  async updateRol(id: number, idRol: number): Promise<User> {
+    const user = await this.findOne(id);
+    const rol = await this.rolesService.findOne(idRol);
+    user.idRol = rol.id;
+    return this.usersRepository.save(user);
   }
 
   async remove(id: number): Promise<void> {

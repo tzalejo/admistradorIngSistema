@@ -8,6 +8,7 @@ import { PrestamosModule } from './prestamos/prestamos.module';
 import { OperacionesModule } from './operaciones/operaciones.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { CierreCajaModule } from './cierre-caja/cierre-caja.module';
+import { RolesModule } from './roles/roles.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { databaseConfig } from './config/database.config';
@@ -30,6 +31,7 @@ import { databaseConfig } from './config/database.config';
     OperacionesModule,
     DashboardModule,
     CierreCajaModule,
+    RolesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

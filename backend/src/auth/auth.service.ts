@@ -20,7 +20,7 @@ export class AuthService {
   async register(registerDto: RegisterDto): Promise<TokensDto> {
     const user = await this.usersService.create(registerDto);
     this.logger.log(`Usuario registrado: ${user.email} (id=${user.id})`);
-    const tokens = await this.generateTokens(user.id, user.email);
+    const tokens = await this.generateTokens(user.id, user.email, user.rol?.nombre ?? 'operador');
     await this.updateRefreshToken(user.id, tokens.refreshToken);
     return tokens;
   }
@@ -41,7 +41,7 @@ export class AuthService {
     }
 
     this.logger.log(`Login exitoso: ${user.email} (id=${user.id})`);
-    const tokens = await this.generateTokens(user.id, user.email);
+    const tokens = await this.generateTokens(user.id, user.email, user.rol?.nombre ?? 'operador');
     await this.updateRefreshToken(user.id, tokens.refreshToken);
     return tokens;
   }
@@ -64,13 +64,13 @@ export class AuthService {
       throw new ForbiddenException('Acceso denegado');
     }
 
-    const tokens = await this.generateTokens(user.id, user.email);
+    const tokens = await this.generateTokens(user.id, user.email, user.rol?.nombre ?? 'operador');
     await this.updateRefreshToken(user.id, tokens.refreshToken);
     return tokens;
   }
 
-  private async generateTokens(userId: number, email: string): Promise<TokensDto> {
-    const payload = { sub: userId, email };
+  private async generateTokens(userId: number, email: string, role: string): Promise<TokensDto> {
+    const payload = { sub: userId, email, role };
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
