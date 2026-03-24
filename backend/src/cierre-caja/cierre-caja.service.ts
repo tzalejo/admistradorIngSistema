@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { Repository } from 'typeorm';
 import { CierreCaja } from './entities/cierre-caja.entity';
 import { DashboardService } from '../dashboard/dashboard.service';
@@ -67,6 +68,16 @@ export class CierreCajaService {
 
     this.logger.log(`Cierre de caja generado para ${today}`);
     return saved;
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_11PM)
+  async cerrarAutomatico(): Promise<void> {
+    this.logger.log('Ejecutando cierre de caja automático (23:00)...');
+    try {
+      await this.cerrar();
+    } catch (error) {
+      this.logger.error('Error en cierre de caja automático', error);
+    }
   }
 
   async getHistorial(): Promise<CierreCaja[]> {

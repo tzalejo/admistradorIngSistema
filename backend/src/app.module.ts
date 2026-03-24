@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { MonedasModule } from './monedas/monedas.module';
@@ -19,6 +20,7 @@ import { databaseConfig } from './config/database.config';
       isGlobal: true,
       envFilePath: '../.env',
     }),
+    ScheduleModule.forRoot(),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
