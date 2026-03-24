@@ -48,6 +48,11 @@ export class CreatePrestamoDto {
   @IsPositive()
   tasaInicial: number;
 
+  @ApiPropertyOptional({ description: 'Hora de registro (HH:MM o HH:MM:SS)' })
+  @IsString()
+  @IsOptional()
+  hora?: string;
+
   @ApiPropertyOptional({ description: 'Notas adicionales' })
   @IsString()
   @IsOptional()

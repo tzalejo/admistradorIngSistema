@@ -24,6 +24,7 @@ export interface Prestamo {
   montoInicial: number;
   moneda: Moneda;
   fechaInicio: string;
+  hora: string;
   plazoMeses: number;
   tasaTipo: TasaTipo;
   tasaInicial: number;
@@ -109,6 +110,7 @@ export interface CreatePrestamoDto {
   montoInicial: number;
   moneda: Moneda;
   fechaInicio: string;
+  hora?: string;
   plazoMeses: number;
   tasaTipo: TasaTipo;
   tasaInicial: number;

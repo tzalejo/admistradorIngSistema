@@ -135,6 +135,7 @@ export function PrestamosPage() {
               <TableHead>Tasa</TableHead>
               <TableHead>Período</TableHead>
               <TableHead>Inicio</TableHead>
+              <TableHead>Hora</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead className="w-24">Acciones</TableHead>
             </TableRow>
@@ -142,14 +143,14 @@ export function PrestamosPage() {
           <TableBody>
             {loading && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
                   Cargando...
                 </TableCell>
               </TableRow>
             )}
             {!loading && filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
                   {hayFiltros ? 'Sin resultados para esos filtros' : 'Sin préstamos registrados'}
                 </TableCell>
               </TableRow>
@@ -170,6 +171,9 @@ export function PrestamosPage() {
                   </TableCell>
                   <TableCell>{p.plazoMeses} mes{p.plazoMeses !== 1 ? 'es' : ''}</TableCell>
                   <TableCell>{formatDate(p.fechaInicio)}</TableCell>
+                  <TableCell className="font-mono text-sm text-muted-foreground">
+                    {p.hora ? p.hora.slice(0, 5) : '—'}
+                  </TableCell>
                   <TableCell>
                     <Badge variant={variant}>{label}</Badge>
                   </TableCell>
@@ -214,11 +218,13 @@ export function PrestamosPage() {
 
 function NuevoPrestamoDialog({ monedas, onClose, onCreated }: { monedas: MonedaItem[]; onClose: () => void; onCreated: () => void }) {
   const today = todayStr();
+  const nowTime = new Date().toTimeString().slice(0, 5);
   const [form, setForm] = useState<CreatePrestamoDto>({
     cliente: '',
     montoInicial: 0,
     moneda: 'ARS',
     fechaInicio: today,
+    hora: nowTime,
     plazoMeses: 6,
     tasaTipo: 'porcentaje',
     tasaInicial: 1,
@@ -375,13 +381,21 @@ function NuevoPrestamoDialog({ monedas, onClose, onCreated }: { monedas: MonedaI
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <Label>Fecha de inicio</Label>
               <Input
                 type="date"
                 value={form.fechaInicio}
                 onChange={(e) => set('fechaInicio', e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Hora</Label>
+              <Input
+                type="time"
+                value={form.hora ?? ''}
+                onChange={(e) => set('hora', e.target.value)}
               />
             </div>
             <div className="space-y-1.5">

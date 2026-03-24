@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   OneToMany,
@@ -14,6 +15,7 @@ import { Moneda } from '../../monedas/entities/moneda.entity';
 import { CuotaInteres } from './cuota-interes.entity';
 
 @Entity('prestamos')
+@Index('idx_prestamos_fecha_hora', ['fechaInicio', 'hora'])
 export class Prestamo {
   @PrimaryGeneratedColumn()
   id: number;
@@ -45,6 +47,9 @@ export class Prestamo {
 
   @Column({ name: 'fecha_inicio', type: 'date' })
   fechaInicio: Date;
+
+  @Column({ type: 'time', default: '00:00:00' })
+  hora: string;
 
   @Column({ name: 'plazo_meses', type: 'int' })
   plazoMeses: number;

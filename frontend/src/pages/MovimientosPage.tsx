@@ -75,6 +75,7 @@ export function MovimientosPage() {
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
   const [loading, setLoading] = useState(true);
   const [tipoFilter, setTipoFilter] = useState<TipoFilter>('todos');
+  const today = new Date().toISOString().slice(0, 10);
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
   const [sortFecha, setSortFecha] = useState<'asc' | 'desc'>('desc');
@@ -91,12 +92,16 @@ export function MovimientosPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Si no hay filtro de fecha, mostrar solo hoy por defecto
+  const efectivoDesde = desde || today;
+  const efectivoHasta = hasta || today;
+
   const filtered = movimientos
     .filter((m) => {
       if (tipoFilter !== 'todos' && m.tipo !== tipoFilter) return false;
       const fecha = m.fecha.slice(0, 10);
-      if (desde && fecha < desde) return false;
-      if (hasta && fecha > hasta) return false;
+      if (fecha < efectivoDesde) return false;
+      if (fecha > efectivoHasta) return false;
       return true;
     })
     .sort((a, b) => {
@@ -106,9 +111,9 @@ export function MovimientosPage() {
 
   const hayFiltros = tipoFilter !== 'todos' || desde || hasta;
 
-  // Totales por moneda (haber - debe)
+  // Totales por moneda (haber - debe) — siempre sobre todos los movimientos, sin filtro de fecha
   const totales: Record<string, number> = {};
-  for (const m of filtered) {
+  for (const m of movimientos) {
     const moneda = m.moneda;
     totales[moneda] = (totales[moneda] ?? 0) + (m.haber ?? 0) - (m.debe ?? 0);
   }

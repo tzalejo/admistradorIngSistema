@@ -34,11 +34,15 @@ export class PrestamosService {
     await queryRunner.startTransaction();
 
     try {
+      const now = new Date();
+      const horaDefault = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+
       const prestamo = queryRunner.manager.create(Prestamo, {
         cliente: dto.cliente,
         montoInicial: dto.montoInicial,
         moneda: dto.moneda,
         fechaInicio: parseISO(dto.fechaInicio),
+        hora: dto.hora ?? horaDefault,
         plazoMeses: dto.plazoMeses,
         tasaTipo: dto.tasaTipo,
         tasaInicial: dto.tasaInicial,
@@ -92,7 +96,7 @@ export class PrestamosService {
   async findAll(): Promise<Prestamo[]> {
     return this.prestamoRepo.find({
       relations: ['cuotas'],
-      order: { createdAt: 'DESC' },
+      order: { fechaInicio: 'DESC', hora: 'DESC' },
     });
   }
 

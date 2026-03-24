@@ -60,6 +60,7 @@ export function OperacionesPage() {
   const [editingOp, setEditingOp] = useState<Operacion | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [capitalPorMoneda, setCapitalPorMoneda] = useState<Record<string, number>>({});
+  const today = new Date().toISOString().slice(0, 10);
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
   const [sortFecha, setSortFecha] = useState<'asc' | 'desc'>('desc');
@@ -94,11 +95,15 @@ export function OperacionesPage() {
     }
   };
 
+  // Si no hay filtro de fecha, mostrar solo hoy por defecto
+  const efectivoDesde = desde || today;
+  const efectivoHasta = hasta || today;
+
   const filteredOperaciones = operaciones
     .filter((op) => {
       const fecha = op.fecha.slice(0, 10);
-      if (desde && fecha < desde) return false;
-      if (hasta && fecha > hasta) return false;
+      if (fecha < efectivoDesde) return false;
+      if (fecha > efectivoHasta) return false;
       return true;
     })
     .sort((a, b) => {
