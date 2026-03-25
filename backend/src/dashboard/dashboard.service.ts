@@ -1,5 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import { Between, Repository } from 'typeorm';
 import { Prestamo } from '../prestamos/entities/prestamo.entity';
 import { CuotaInteres } from '../prestamos/entities/cuota-interes.entity';
@@ -39,6 +41,10 @@ export interface ResumenDashboard {
   }>;
 }
 
+const CACHE_KEY_MOVIMIENTOS = 'dashboard:movimientos';
+const CACHE_KEY_CAJA = 'dashboard:caja';
+const CACHE_KEY_RESUMEN = 'dashboard:resumen';
+
 @Injectable()
 export class DashboardService {
   constructor(
@@ -49,9 +55,13 @@ export class DashboardService {
     @InjectRepository(Operacion)
     private readonly operacionRepo: Repository<Operacion>,
     private readonly monedasService: MonedasService,
+    @Inject(CACHE_MANAGER) private readonly cache: Cache,
   ) {}
 
   async getMovimientos(): Promise<Movimiento[]> {
+    const cached = await this.cache.get<Movimiento[]>(CACHE_KEY_MOVIMIENTOS);
+    if (cached) return cached;
+
     const movimientos: Movimiento[] = [];
 
     // 1. Ingresos por préstamos recibidos
@@ -165,10 +175,14 @@ export class DashboardService {
     }
 
     movimientos.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+    await this.cache.set(CACHE_KEY_MOVIMIENTOS, movimientos, 5 * 60 * 1000); // 5 min
     return movimientos;
   }
 
   async getResumen(): Promise<ResumenDashboard> {
+    const cached = await this.cache.get<ResumenDashboard>(CACHE_KEY_RESUMEN);
+    if (cached) return cached;
+
     const [prestamosActivos, codigos] = await Promise.all([
       this.prestamoRepo.find({
         where: { estado: EstadoPrestamo.ACTIVO },
@@ -224,7 +238,7 @@ export class DashboardService {
       fechaVencimiento: c.fechaVencimiento,
     }));
 
-    return {
+    const resumen = {
       prestamosActivos: prestamosActivos.length,
       capitalTotalPorMoneda,
       interesesPendientesPorMoneda,
@@ -232,6 +246,8 @@ export class DashboardService {
       operacionesTotales,
       proximasCuotas,
     };
+    await this.cache.set(CACHE_KEY_RESUMEN, resumen, 5 * 60 * 1000); // 5 min
+    return resumen;
   }
 
   /**
@@ -243,6 +259,9 @@ export class DashboardService {
    *   - cuotas de interés ya pagadas
    */
   async getCajaPorMoneda(): Promise<Record<string, number>> {
+    const cached = await this.cache.get<Record<string, number>>(CACHE_KEY_CAJA);
+    if (cached) return cached;
+
     const [prestamos, operaciones, cuotasPagadas, codigos] = await Promise.all([
       this.prestamoRepo.find(),
       this.operacionRepo.find(),
@@ -282,6 +301,7 @@ export class DashboardService {
       }
     }
 
+    await this.cache.set(CACHE_KEY_CAJA, caja, 5 * 60 * 1000); // 5 min
     return caja;
   }
 

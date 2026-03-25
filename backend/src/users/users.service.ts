@@ -1,5 +1,7 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
@@ -7,12 +9,16 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { RolesService } from '../roles/roles.service';
 
+const CACHE_KEY_USER_EMAIL = (email: string) => `user:email:${email}`;
+const CACHE_TTL = 60 * 1000; // 60 segundos
+
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
     private readonly rolesService: RolesService,
+    @Inject(CACHE_MANAGER) private readonly cache: Cache,
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
@@ -35,7 +41,9 @@ export class UsersService {
       idRol: rolOperador?.id ?? null,
     });
 
-    return this.usersRepository.save(user);
+    const saved = await this.usersRepository.save(user);
+    await this.cache.del(CACHE_KEY_USER_EMAIL(saved.email));
+    return saved;
   }
 
   async findAll(): Promise<User[]> {
@@ -53,7 +61,11 @@ export class UsersService {
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.usersRepository.findOne({ where: { email } });
+    const cached = await this.cache.get<User>(CACHE_KEY_USER_EMAIL(email));
+    if (cached) return cached;
+    const user = await this.usersRepository.findOne({ where: { email } });
+    if (user) await this.cache.set(CACHE_KEY_USER_EMAIL(email), user, CACHE_TTL);
+    return user;
   }
 
   async update(id: number, updateUserDto: UpdateUserDto): Promise<User> {
@@ -64,22 +76,28 @@ export class UsersService {
     }
 
     Object.assign(user, updateUserDto);
-    return this.usersRepository.save(user);
+    const saved = await this.usersRepository.save(user);
+    await this.cache.del(CACHE_KEY_USER_EMAIL(saved.email));
+    return saved;
   }
 
   async updateRefreshToken(id: number, refreshToken: string | null): Promise<void> {
     await this.usersRepository.update(id, { refreshToken });
+    // No invalida cache — refreshToken no afecta la autenticación de findByEmail
   }
 
   async updateRol(id: number, idRol: number): Promise<User> {
     const user = await this.findOne(id);
     const rol = await this.rolesService.findOne(idRol);
     user.idRol = rol.id;
-    return this.usersRepository.save(user);
+    const saved = await this.usersRepository.save(user);
+    await this.cache.del(CACHE_KEY_USER_EMAIL(saved.email));
+    return saved;
   }
 
   async remove(id: number): Promise<void> {
     const user = await this.findOne(id);
     await this.usersRepository.remove(user);
+    await this.cache.del(CACHE_KEY_USER_EMAIL(user.email));
   }
 }

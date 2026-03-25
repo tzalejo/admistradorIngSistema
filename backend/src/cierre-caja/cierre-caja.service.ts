@@ -6,8 +6,6 @@ import { CierreCaja } from './entities/cierre-caja.entity';
 import { DashboardService } from '../dashboard/dashboard.service';
 import { MonedasService } from '../monedas/monedas.service';
 
-const CODIGOS = ['ARS', 'USD', 'USDT'] as const;
-
 @Injectable()
 export class CierreCajaService {
   private readonly logger = new Logger(CierreCajaService.name);
@@ -25,11 +23,12 @@ export class CierreCajaService {
     const [caja, todosMovimientos, todasMonedas] = await Promise.all([
       this.dashboardService.getCajaPorMoneda(),
       this.dashboardService.getMovimientos(),
-      this.monedasService.findAll(),
+      this.monedasService.findAll(), // ya viene cacheado desde MonedasService
     ]);
 
     // Índice código → entidad Moneda
     const monedaMap = new Map(todasMonedas.map((m) => [m.codigo, m]));
+    const codigos = todasMonedas.map((m) => m.codigo);
 
     // Movimientos de hoy
     const movimientosHoy = todosMovimientos.filter(
@@ -37,27 +36,25 @@ export class CierreCajaService {
     );
 
     // Acumular entradas/salidas por código de moneda
-    const entradas: Record<string, number> = { ARS: 0, USD: 0, USDT: 0 };
-    const salidas: Record<string, number> = { ARS: 0, USD: 0, USDT: 0 };
+    const entradas: Record<string, number> = Object.fromEntries(codigos.map((c) => [c, 0]));
+    const salidas: Record<string, number> = Object.fromEntries(codigos.map((c) => [c, 0]));
 
     for (const m of movimientosHoy) {
-      if (!CODIGOS.includes(m.moneda as (typeof CODIGOS)[number])) continue;
+      if (!codigos.includes(m.moneda)) continue;
       if (m.haber !== null) entradas[m.moneda] += m.haber;
       if (m.debe !== null) salidas[m.moneda] += m.debe;
     }
 
-    const resultados: CierreCaja[] = [];
-
-    for (const codigo of CODIGOS) {
+    for (const codigo of codigos) {
       const moneda = monedaMap.get(codigo);
       if (!moneda) continue;
 
       const existing = await this.repo.findOneBy({ fecha: today, idMoneda: moneda.id });
       const cierre = existing ?? this.repo.create({ fecha: today, idMoneda: moneda.id });
       cierre.saldo = caja[codigo] ?? 0;
-      cierre.entrada = entradas[codigo];
-      cierre.salida = salidas[codigo];
-      resultados.push(await this.repo.save(cierre));
+      cierre.entrada = entradas[codigo] ?? 0;
+      cierre.salida = salidas[codigo] ?? 0;
+      await this.repo.save(cierre);
     }
 
     // Recargar con la relación moneda incluida (eager)

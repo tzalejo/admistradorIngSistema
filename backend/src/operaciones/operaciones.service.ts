@@ -1,5 +1,7 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import { DataSource, Repository } from 'typeorm';
 import { parseISO } from 'date-fns';
 import { Operacion } from './entities/operacion.entity';
@@ -9,6 +11,10 @@ import { TipoOperacion } from '../common/enums/tipo-operacion.enum';
 import { EstadoPrestamo } from '../common/enums/estado-prestamo.enum';
 import { EstadoCuota } from '../common/enums/estado-cuota.enum';
 
+const CACHE_KEY_MOVIMIENTOS = 'dashboard:movimientos';
+const CACHE_KEY_CAJA = 'dashboard:caja';
+const CACHE_KEY_RESUMEN = 'dashboard:resumen';
+
 @Injectable()
 export class OperacionesService {
   private readonly logger = new Logger(OperacionesService.name);
@@ -17,6 +23,7 @@ export class OperacionesService {
     @InjectRepository(Operacion)
     private readonly operacionRepo: Repository<Operacion>,
     private readonly dataSource: DataSource,
+    @Inject(CACHE_MANAGER) private readonly cache: Cache,
   ) {}
 
   private async calcularSaldo(moneda: string): Promise<number> {
@@ -93,6 +100,9 @@ export class OperacionesService {
 
     const saved = await this.operacionRepo.save(operacion);
     this.logger.log(`Operación creada: id=${saved.id}, tipo=${saved.tipo}, ${saved.montoOrigen} ${saved.monedaOrigen}`);
+    await this.cache.del(CACHE_KEY_MOVIMIENTOS);
+    await this.cache.del(CACHE_KEY_CAJA);
+    await this.cache.del(CACHE_KEY_RESUMEN);
     return this.findOne(saved.id);
   }
 
@@ -124,12 +134,18 @@ export class OperacionesService {
     });
 
     await this.operacionRepo.save(op);
+    await this.cache.del(CACHE_KEY_MOVIMIENTOS);
+    await this.cache.del(CACHE_KEY_CAJA);
+    await this.cache.del(CACHE_KEY_RESUMEN);
     return this.findOne(id);
   }
 
   async remove(id: number): Promise<void> {
     const op = await this.findOne(id);
     await this.operacionRepo.remove(op);
+    await this.cache.del(CACHE_KEY_MOVIMIENTOS);
+    await this.cache.del(CACHE_KEY_CAJA);
+    await this.cache.del(CACHE_KEY_RESUMEN);
     this.logger.log(`Operación eliminada: id=${id}`);
   }
 }

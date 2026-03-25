@@ -3,8 +3,11 @@ import {
   NotFoundException,
   BadRequestException,
   Logger,
+  Inject,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import { DataSource, Repository } from 'typeorm';
 import { addMonths, parseISO } from 'date-fns';
 import { Prestamo } from './entities/prestamo.entity';
@@ -16,6 +19,10 @@ import { EstadoPrestamo } from '../common/enums/estado-prestamo.enum';
 import { EstadoCuota } from '../common/enums/estado-cuota.enum';
 import { TasaTipo } from '../common/enums/tasa-tipo.enum';
 
+const CACHE_KEY_MOVIMIENTOS = 'dashboard:movimientos';
+const CACHE_KEY_CAJA = 'dashboard:caja';
+const CACHE_KEY_RESUMEN = 'dashboard:resumen';
+
 @Injectable()
 export class PrestamosService {
   private readonly logger = new Logger(PrestamosService.name);
@@ -26,6 +33,7 @@ export class PrestamosService {
     @InjectRepository(CuotaInteres)
     private readonly cuotaRepo: Repository<CuotaInteres>,
     private readonly dataSource: DataSource,
+    @Inject(CACHE_MANAGER) private readonly cache: Cache,
   ) {}
 
   async create(dto: CreatePrestamoDto): Promise<Prestamo> {
@@ -55,6 +63,9 @@ export class PrestamosService {
       await queryRunner.commitTransaction();
 
       this.logger.log(`Préstamo creado: id=${saved.id}, cliente=${saved.cliente}, monto=${saved.montoInicial} ${saved.moneda}`);
+      await this.cache.del(CACHE_KEY_MOVIMIENTOS);
+      await this.cache.del(CACHE_KEY_CAJA);
+      await this.cache.del(CACHE_KEY_RESUMEN);
       return this.findOne(saved.id);
     } catch (error) {
       await queryRunner.rollbackTransaction();
@@ -128,12 +139,18 @@ export class PrestamosService {
     });
 
     await this.prestamoRepo.save(prestamo);
+    await this.cache.del(CACHE_KEY_MOVIMIENTOS);
+    await this.cache.del(CACHE_KEY_CAJA);
+    await this.cache.del(CACHE_KEY_RESUMEN);
     return this.findOne(id);
   }
 
   async remove(id: number): Promise<void> {
     const prestamo = await this.findOne(id);
     await this.prestamoRepo.remove(prestamo);
+    await this.cache.del(CACHE_KEY_MOVIMIENTOS);
+    await this.cache.del(CACHE_KEY_CAJA);
+    await this.cache.del(CACHE_KEY_RESUMEN);
   }
 
   // --- Cuotas ---
@@ -163,7 +180,11 @@ export class PrestamosService {
       ...(dto.notas !== undefined && { notas: dto.notas }),
     });
 
-    return this.cuotaRepo.save(cuota);
+    const saved = await this.cuotaRepo.save(cuota);
+    await this.cache.del(CACHE_KEY_MOVIMIENTOS);
+    await this.cache.del(CACHE_KEY_CAJA);
+    await this.cache.del(CACHE_KEY_RESUMEN);
+    return saved;
   }
 
   // Resumen financiero de un préstamo específico
