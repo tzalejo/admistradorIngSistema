@@ -25,7 +25,7 @@ import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { prestamosService } from '@/services/prestamos.service';
 import { monedasService, type MonedaItem } from '@/services/monedas.service';
 import { formatMonto, formatDate, formatTasa, todayStr } from '@/lib/format';
-import type { Prestamo, CreatePrestamoDto, TasaTipo, EstadoPrestamo } from '@/types';
+import type { Prestamo, CreatePrestamoDto, TasaTipo, EstadoPrestamo, Moneda } from '@/types';
 
 const ESTADO_BADGE: Record<EstadoPrestamo, { label: string; variant: 'default' | 'success' | 'destructive' | 'secondary' }> = {
   activo: { label: 'Activo', variant: 'default' },
@@ -46,7 +46,7 @@ export function PrestamosPage() {
     setDesde(d);
     setHasta(h);
   }, []);
-  const [deleting, setDeleting] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<number | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -61,7 +61,7 @@ export function PrestamosPage() {
     monedasService.getAll().then(setMonedas);
   }, []);
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: number) => {
     if (!confirm('¿Eliminar este préstamo? Esta acción no se puede deshacer.')) return;
     setDeleting(id);
     try {
