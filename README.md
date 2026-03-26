@@ -54,6 +54,13 @@ docker compose down
 
 # Detener y eliminar volúmenes (borra la DB)
 docker compose down -v
+
+# Instalar dependencias del backend dentro del contenedor
+docker-compose exec backend sh -c "npm install --include=dev"
+
+# Eliminar todas las tablas y regenerarlas (drop + recreate schema)
+docker-compose exec -T postgres psql -U prestamos_user -d prestamos_db -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+docker-compose restart backend
 ```
 
 ## Migraciones de base de datos

@@ -21,6 +21,6 @@ docker-compose -f "$ROOT_DIR/docker-compose.yml" exec -T \
   -e PGPASSWORD="$DB_PASSWORD" \
   postgres \
   psql -U "$DB_USER" -d "$DB_NAME" -c \
-  "TRUNCATE cuotas_interes, operaciones, prestamos RESTART IDENTITY CASCADE;"
+  "TRUNCATE cuotas_interes, operaciones,monedas, prestamos RESTART IDENTITY CASCADE;"
 
 echo "Listo. Las tablas fueron vaciadas (monedas y migrations no se tocaron)."

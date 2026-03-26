@@ -1,4 +1,10 @@
-import { Injectable, ConflictException, NotFoundException, Inject } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+  Inject,
+  OnApplicationBootstrap,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
@@ -13,13 +19,31 @@ const CACHE_KEY_USER_EMAIL = (email: string) => `user:email:${email}`;
 const CACHE_TTL = 60 * 1000; // 60 segundos
 
 @Injectable()
-export class UsersService {
+export class UsersService implements OnApplicationBootstrap {
   constructor(
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
     private readonly rolesService: RolesService,
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
-  ) {}
+  ) { }
+
+  async onApplicationBootstrap() {
+    const email = 'tzalejo@gmail.com';
+    const exists = await this.usersRepository.findOneBy({ email });
+    if (!exists) {
+      const rolAdmin = await this.rolesService.findByNombre('admin');
+      const hashedPassword = await bcrypt.hash('secret1234', 12);
+      await this.usersRepository.save(
+        this.usersRepository.create({
+          email,
+          password: hashedPassword,
+          firstName: 'Alejandro',
+          lastName: 'Valenzuela',
+          idRol: rolAdmin?.id ?? null,
+        }),
+      );
+    }
+  }
 
   async create(createUserDto: CreateUserDto): Promise<User> {
     const existing = await this.usersRepository.findOne({
