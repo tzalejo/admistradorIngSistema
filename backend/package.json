@@ -15,7 +15,9 @@
     "migration:generate": "npm run typeorm -- migration:generate -d src/config/data-source.ts",
     "migration:create": "npm run typeorm -- migration:create",
     "migration:run": "npm run typeorm -- migration:run -d src/config/data-source.ts",
+    "migration:run:prod": "npx typeorm migration:run -d dist/config/data-source.js",
     "migration:revert": "npm run typeorm -- migration:revert -d src/config/data-source.ts",
+    "migration:revert:prod": "npx typeorm migration:revert -d dist/config/data-source.js",
     "db:truncate": "cd .. && ./scripts/db-truncate.sh"
   },
   "dependencies": {
