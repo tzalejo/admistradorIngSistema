@@ -12,6 +12,9 @@ import {
   Minus,
   RotateCcw,
   CreditCard,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -44,6 +47,7 @@ import { formatMonto, formatDate, formatTasa, diasHastaVencimiento, todayStr } f
 import type {
   Prestamo,
   CuotaInteres,
+  PagoCuota,
   ResumenPrestamo,
   UpdateCuotaDto,
   EstadoCuota,
@@ -182,6 +186,7 @@ export function PrestamoDetallePage() {
         cuotas={prestamo.cuotas ?? []}
         moneda={prestamo.moneda}
         onPagar={setPagarCuota}
+        onChanged={load}
       />
 
       {/* Cuotas */}
@@ -228,6 +233,10 @@ export function PrestamoDetallePage() {
                     {cuota.estado === 'pagado' ? (
                       <span className="flex items-center gap-1 text-success text-xs font-medium">
                         <CheckCircle2 className="h-3.5 w-3.5" /> Pagada
+                      </span>
+                    ) : cuota.estado === 'parcial' ? (
+                      <span className="flex items-center gap-1 text-blue-400 text-xs font-medium">
+                        <CreditCard className="h-3.5 w-3.5" /> Parcial ({Math.round((cuota.montoPagado / cuota.montoPago) * 100)}%)
                       </span>
                     ) : vencida ? (
                       <span className="flex items-center gap-1 text-destructive text-xs font-medium">
@@ -288,12 +297,16 @@ function HistorialPagos({
   cuotas,
   moneda,
   onPagar,
+  onChanged,
 }: {
   cuotas: CuotaInteres[];
   moneda: string;
   onPagar: (cuota: CuotaInteres) => void;
+  onChanged: () => void;
 }) {
+  const [expandedCuotaId, setExpandedCuotaId] = useState<number | null>(null);
   const pagadas = cuotas.filter((c) => c.estado === 'pagado');
+  const parciales = cuotas.filter((c) => c.estado === 'parcial');
   const pendientes = cuotas.filter((c) => c.estado === 'pendiente');
 
   return (
@@ -304,7 +317,9 @@ function HistorialPagos({
           Pagos de interés
         </h2>
         <span className="text-xs text-muted-foreground">
-          {pagadas.length} pagado{pagadas.length !== 1 ? 's' : ''} · {pendientes.length} pendiente{pendientes.length !== 1 ? 's' : ''}
+          {pagadas.length} pagado{pagadas.length !== 1 ? 's' : ''}
+          {parciales.length > 0 && <> · {parciales.length} parcial{parciales.length !== 1 ? 'es' : ''}</>}
+          {' '}· {pendientes.length} pendiente{pendientes.length !== 1 ? 's' : ''}
         </span>
       </div>
 
@@ -321,58 +336,124 @@ function HistorialPagos({
             const esTarde = diasDiff !== null && diasDiff > 0;
             const esAntes = diasDiff !== null && diasDiff < 0;
 
+            const isExpanded = expandedCuotaId === c.id;
             return (
-              <div key={c.id} className="flex items-center gap-4 px-5 py-3.5 hover:bg-muted/20 transition-colors">
-                {/* Indicador de estado de pago */}
-                <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                  esTarde ? 'bg-orange-500/15' : 'bg-success/15'
-                }`}>
-                  <CheckCircle2 className={`h-4 w-4 ${esTarde ? 'text-orange-400' : 'text-success'}`} />
-                </div>
+              <div key={c.id}>
+                <div
+                  className="flex items-center gap-4 px-5 py-3.5 hover:bg-muted/20 transition-colors cursor-pointer"
+                  onClick={() => setExpandedCuotaId(isExpanded ? null : c.id)}
+                >
+                  {/* Indicador de estado de pago */}
+                  <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                    esTarde ? 'bg-orange-500/15' : 'bg-success/15'
+                  }`}>
+                    <CheckCircle2 className={`h-4 w-4 ${esTarde ? 'text-orange-400' : 'text-success'}`} />
+                  </div>
 
-                {/* Mes */}
-                <div className="w-14 flex-shrink-0">
-                  <p className="text-xs text-muted-foreground">Mes</p>
-                  <p className="font-semibold text-sm">{c.mesNumero}</p>
-                </div>
+                  {/* Mes */}
+                  <div className="w-14 flex-shrink-0">
+                    <p className="text-xs text-muted-foreground">Mes</p>
+                    <p className="font-semibold text-sm">{c.mesNumero}</p>
+                  </div>
 
-                {/* Monto */}
-                <div className="flex-1 min-w-0">
-                  <p className="font-mono font-semibold text-sm">{formatMonto(c.montoPago, moneda)}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Venc: {formatDate(c.fechaVencimiento)}
-                  </p>
-                </div>
-
-                {/* Fecha de pago real */}
-                <div className="text-right flex-shrink-0">
-                  <p className="text-sm font-medium">
-                    {c.fechaPagoReal ? formatDate(c.fechaPagoReal) : '—'}
-                  </p>
-                  {diasDiff !== null && (
-                    <p className={`text-xs flex items-center justify-end gap-0.5 ${
-                      esTarde ? 'text-orange-400' : esAntes ? 'text-success' : 'text-muted-foreground'
-                    }`}>
-                      {esTarde ? (
-                        <><CalendarX className="h-3 w-3" /> {diasDiff}d tarde</>
-                      ) : esAntes ? (
-                        <><CalendarCheck className="h-3 w-3" /> {Math.abs(diasDiff)}d antes</>
-                      ) : (
-                        <><Minus className="h-3 w-3" /> en fecha</>
-                      )}
+                  {/* Monto */}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-mono font-semibold text-sm">{formatMonto(c.montoPago, moneda)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Venc: {formatDate(c.fechaVencimiento)}
                     </p>
-                  )}
+                  </div>
+
+                  {/* Fecha de pago real + expand */}
+                  <div className="text-right flex-shrink-0 flex items-center gap-2">
+                    <div>
+                      <p className="text-sm font-medium">
+                        {c.fechaPagoReal ? formatDate(c.fechaPagoReal) : '—'}
+                      </p>
+                      {diasDiff !== null && (
+                        <p className={`text-xs flex items-center justify-end gap-0.5 ${
+                          esTarde ? 'text-orange-400' : esAntes ? 'text-success' : 'text-muted-foreground'
+                        }`}>
+                          {esTarde ? (
+                            <><CalendarX className="h-3 w-3" /> {diasDiff}d tarde</>
+                          ) : esAntes ? (
+                            <><CalendarCheck className="h-3 w-3" /> {Math.abs(diasDiff)}d antes</>
+                          ) : (
+                            <><Minus className="h-3 w-3" /> en fecha</>
+                          )}
+                        </p>
+                      )}
+                    </div>
+                    {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                  </div>
                 </div>
+                {isExpanded && (
+                  <div className="px-5 pb-3">
+                    <PagosCuotaDetail cuotaId={c.id} moneda={moneda} onChanged={onChanged} />
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
       )}
 
+      {/* Cuotas parciales — pagos incompletos */}
+      {parciales.length > 0 && (
+        <>
+          {pagadas.length > 0 && <div className="border-t border-border" />}
+          <div className="px-5 py-3 bg-blue-500/5">
+            <p className="text-xs font-medium text-blue-400 uppercase tracking-wide mb-2">
+              Pagos parciales
+            </p>
+            <div className="space-y-2">
+              {parciales.map((c) => {
+                const saldo = c.montoPago - c.montoPagado;
+                const pct = (c.montoPagado / c.montoPago) * 100;
+                return (
+                  <div key={c.id} className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-2 text-muted-foreground">
+                        <CreditCard className="h-3.5 w-3.5 text-blue-400" />
+                        Mes {c.mesNumero} · {formatDate(c.fechaVencimiento)}
+                      </span>
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono text-xs">
+                          {formatMonto(c.montoPagado, moneda)} / {formatMonto(c.montoPago, moneda)}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 px-2 text-xs gap-1"
+                          onClick={() => onPagar(c)}
+                        >
+                          <CreditCard className="h-3 w-3" />
+                          Completar
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-blue-500 transition-all"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Resta: {formatMonto(saldo, moneda)} ({Math.round(100 - pct)}%)
+                    </p>
+                    <PagosCuotaDetail cuotaId={c.id} moneda={moneda} onChanged={onChanged} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Cuotas pendientes — resumen compacto */}
       {pendientes.length > 0 && (
         <>
-          {pagadas.length > 0 && <div className="border-t border-border" />}
+          {(pagadas.length > 0 || parciales.length > 0) && <div className="border-t border-border" />}
           <div className="px-5 py-3 bg-muted/10">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
               Próximas cuotas
@@ -541,6 +622,7 @@ function EditCuotaDialog({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="pendiente">Pendiente</SelectItem>
+                <SelectItem value="parcial">Parcial</SelectItem>
                 <SelectItem value="pagado">Pagado</SelectItem>
               </SelectContent>
             </Select>
@@ -573,18 +655,27 @@ function PagarCuotaDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const saldoPendiente = cuota.montoPago - cuota.montoPagado;
+  const [montoStr, setMontoStr] = useState(String(saldoPendiente));
+  const [monto, setMonto] = useState(saldoPendiente);
   const [fecha, setFecha] = useState(todayStr());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  const excedente = Math.max(0, monto - saldoPendiente);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (monto <= 0) {
+      setError('El monto debe ser mayor a 0');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
-      await prestamosService.updateCuota(cuota.id, {
-        estado: 'pagado',
-        fechaPagoReal: fecha,
+      await prestamosService.pagarCuota(cuota.id, {
+        monto,
+        fechaPago: fecha,
       });
       onSaved();
     } catch (err: unknown) {
@@ -603,13 +694,47 @@ function PagarCuotaDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="rounded-md bg-muted/50 border border-border p-3 text-sm space-y-1">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Monto</span>
+              <span className="text-muted-foreground">Monto cuota</span>
               <span className="font-mono font-semibold">{formatMonto(cuota.montoPago, moneda)}</span>
+            </div>
+            {cuota.montoPagado > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Ya pagado</span>
+                <span className="font-mono text-success">{formatMonto(cuota.montoPagado, moneda)}</span>
+              </div>
+            )}
+            <div className="flex justify-between font-medium">
+              <span className="text-muted-foreground">Saldo pendiente</span>
+              <span className="font-mono">{formatMonto(saldoPendiente, moneda)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Vencimiento</span>
               <span>{formatDate(cuota.fechaVencimiento)}</span>
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Monto a pagar</Label>
+            <Input
+              type="text"
+              inputMode="decimal"
+              value={montoStr}
+              onChange={(e) => {
+                setMontoStr(e.target.value);
+                const num = parseFloat(e.target.value.replace(',', '.'));
+                if (!isNaN(num) && num >= 0) setMonto(num);
+              }}
+            />
+            {excedente > 0 && (
+              <p className="text-xs text-blue-400">
+                El excedente de {formatMonto(excedente, moneda)} se aplicará a la(s) siguiente(s) cuota(s)
+              </p>
+            )}
+            {monto > 0 && monto < saldoPendiente && (
+              <p className="text-xs text-warning">
+                Pago parcial — quedarán {formatMonto(saldoPendiente - monto, moneda)} pendientes
+              </p>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -631,9 +756,149 @@ function PagarCuotaDialog({
             <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={saving}>
+            <Button type="submit" disabled={saving || monto <= 0}>
               {saving ? 'Registrando...' : 'Confirmar pago'}
             </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PagosCuotaDetail({
+  cuotaId,
+  moneda,
+  onChanged,
+}: {
+  cuotaId: number;
+  moneda: string;
+  onChanged: () => void;
+}) {
+  const [pagos, setPagos] = useState<PagoCuota[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editPago, setEditPago] = useState<PagoCuota | null>(null);
+
+  const loadPagos = () => {
+    prestamosService.getPagosByCuota(cuotaId)
+      .then(setPagos)
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { loadPagos(); }, [cuotaId]);
+
+  const handleDelete = async (pagoId: number) => {
+    if (!confirm('¿Eliminar este pago? Se recalculará la cuota.')) return;
+    await prestamosService.deletePago(pagoId);
+    loadPagos();
+    onChanged();
+  };
+
+  if (loading) return <p className="text-xs text-muted-foreground py-1">Cargando pagos...</p>;
+  if (pagos.length === 0) return null;
+
+  return (
+    <div className="mt-1 space-y-1">
+      {pagos.map((p) => (
+        <div key={p.id} className="flex items-center justify-between text-xs bg-muted/30 rounded px-3 py-1.5">
+          <span className="text-muted-foreground">{formatDate(p.fechaPago)}</span>
+          <div className="flex items-center gap-2">
+            <span className="font-mono">{formatMonto(p.monto, moneda)}</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5"
+              onClick={() => setEditPago(p)}
+            >
+              <Edit2 className="h-3 w-3" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5 text-destructive"
+              onClick={() => handleDelete(p.id)}
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+      ))}
+
+      {editPago && (
+        <EditPagoDialog
+          pago={editPago}
+          moneda={moneda}
+          onClose={() => setEditPago(null)}
+          onSaved={() => { setEditPago(null); loadPagos(); onChanged(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function EditPagoDialog({
+  pago,
+  moneda,
+  onClose,
+  onSaved,
+}: {
+  pago: PagoCuota;
+  moneda: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [montoStr, setMontoStr] = useState(String(pago.monto));
+  const [monto, setMonto] = useState(pago.monto);
+  const [fecha, setFecha] = useState(pago.fechaPago.split('T')[0]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+    try {
+      await prestamosService.updatePago(pago.id, { monto, fechaPago: fecha });
+      onSaved();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al guardar');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-xs">
+        <DialogHeader>
+          <DialogTitle>Editar pago</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>Monto</Label>
+            <Input
+              type="text"
+              inputMode="decimal"
+              value={montoStr}
+              onChange={(e) => {
+                setMontoStr(e.target.value);
+                const num = parseFloat(e.target.value.replace(',', '.'));
+                if (!isNaN(num) && num >= 0) setMonto(num);
+              }}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Fecha</Label>
+            <Input
+              type="date"
+              value={fecha}
+              onChange={(e) => setFecha(e.target.value)}
+            />
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose} disabled={saving}>Cancelar</Button>
+            <Button type="submit" disabled={saving}>{saving ? 'Guardando...' : 'Guardar'}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

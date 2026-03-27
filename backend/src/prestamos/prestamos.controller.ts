@@ -15,6 +15,8 @@ import { PrestamosService } from './prestamos.service';
 import { CreatePrestamoDto } from './dto/create-prestamo.dto';
 import { UpdatePrestamoDto } from './dto/update-prestamo.dto';
 import { UpdateCuotaDto } from './dto/update-cuota.dto';
+import { PagarCuotaDto } from './dto/pagar-cuota.dto';
+import { UpdatePagoCuotaDto } from './dto/update-pago-cuota.dto';
 
 @ApiTags('Prestamos')
 @Controller('prestamos')
@@ -69,6 +71,15 @@ export class PrestamosController {
     return this.prestamosService.findCuotas(id);
   }
 
+  @Post('cuotas/:cuotaId/pagar')
+  @ApiOperation({ summary: 'Registrar pago (parcial o total) de una cuota con carry-over automático' })
+  pagarCuota(
+    @Param('cuotaId', ParseIntPipe) cuotaId: number,
+    @Body() dto: PagarCuotaDto,
+  ) {
+    return this.prestamosService.pagarCuota(cuotaId, dto);
+  }
+
   @Patch('cuotas/:cuotaId')
   @ApiOperation({ summary: 'Actualizar una cuota (tasa, pago, estado)' })
   updateCuota(
@@ -76,5 +87,29 @@ export class PrestamosController {
     @Body() dto: UpdateCuotaDto,
   ) {
     return this.prestamosService.updateCuota(cuotaId, dto);
+  }
+
+  // --- Pagos individuales ---
+
+  @Get('cuotas/:cuotaId/pagos')
+  @ApiOperation({ summary: 'Listar pagos de una cuota' })
+  findPagosByCuota(@Param('cuotaId', ParseIntPipe) cuotaId: number) {
+    return this.prestamosService.findPagosByCuota(cuotaId);
+  }
+
+  @Patch('pagos/:pagoId')
+  @ApiOperation({ summary: 'Editar un pago individual (recalcula la cuota)' })
+  updatePago(
+    @Param('pagoId', ParseIntPipe) pagoId: number,
+    @Body() dto: UpdatePagoCuotaDto,
+  ) {
+    return this.prestamosService.updatePago(pagoId, dto);
+  }
+
+  @Delete('pagos/:pagoId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Eliminar un pago individual (recalcula la cuota)' })
+  deletePago(@Param('pagoId', ParseIntPipe) pagoId: number) {
+    return this.prestamosService.deletePago(pagoId);
   }
 }

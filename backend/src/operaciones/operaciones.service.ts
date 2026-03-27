@@ -9,7 +9,7 @@ import { CreateOperacionDto } from './dto/create-operacion.dto';
 import { UpdateOperacionDto } from './dto/update-operacion.dto';
 import { TipoOperacion } from '../common/enums/tipo-operacion.enum';
 import { EstadoPrestamo } from '../common/enums/estado-prestamo.enum';
-import { EstadoCuota } from '../common/enums/estado-cuota.enum';
+
 
 const CACHE_KEY_MOVIMIENTOS = 'dashboard:movimientos';
 const CACHE_KEY_CAJA = 'dashboard:caja';
@@ -57,14 +57,14 @@ export class OperacionesService {
       .setParameter('moneda', moneda)
       .getRawOne<{ entradas: string; salidasOrigen: string; entradasDestino: string }>();
 
-    // Intereses ya cobrados (salen de caja)
+    // Intereses ya cobrados (salen de caja) — suma de pagos individuales
     const cuotasRow = await this.dataSource
       .createQueryBuilder()
-      .select('COALESCE(SUM(ci.monto_pago), 0)', 'interesesPagados')
-      .from('cuotas_interes', 'ci')
+      .select('COALESCE(SUM(pc.monto), 0)', 'interesesPagados')
+      .from('pagos_cuota', 'pc')
+      .innerJoin('cuotas_interes', 'ci', 'ci.id = pc.cuota_id')
       .innerJoin('prestamos', 'p', 'p.id = ci.prestamo_id')
-      .where('ci.estado = :estado', { estado: EstadoCuota.PAGADO })
-      .andWhere('p.moneda = :moneda', { moneda })
+      .where('p.moneda = :moneda', { moneda })
       .getRawOne<{ interesesPagados: string }>();
 
     return (

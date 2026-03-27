@@ -2,12 +2,15 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { EstadoCuota } from '../../common/enums/estado-cuota.enum';
 import { Prestamo } from './prestamo.entity';
+import { PagoCuota } from './pago-cuota.entity';
 
 @Entity('cuotas_interes')
 export class CuotaInteres {
@@ -17,6 +20,7 @@ export class CuotaInteres {
   @ManyToOne(() => Prestamo, (prestamo) => prestamo.cuotas, {
     onDelete: 'CASCADE',
   })
+  @JoinColumn({ name: 'prestamo_id' })
   prestamo: Prestamo;
 
   @Column({ name: 'prestamo_id', type: 'int', nullable: true })
@@ -52,6 +56,20 @@ export class CuotaInteres {
   })
   montoPago: number;
 
+  // Monto efectivamente pagado (permite pagos parciales y excedentes)
+  @Column({
+    name: 'monto_pagado',
+    type: 'decimal',
+    precision: 18,
+    scale: 8,
+    default: 0,
+    transformer: {
+      to: (v: number) => v,
+      from: (v: string) => parseFloat(v),
+    },
+  })
+  montoPagado: number;
+
   @Column({ name: 'fecha_vencimiento', type: 'date' })
   fechaVencimiento: Date;
 
@@ -64,6 +82,9 @@ export class CuotaInteres {
     default: EstadoCuota.PENDIENTE,
   })
   estado: EstadoCuota;
+
+  @OneToMany(() => PagoCuota, (pago) => pago.cuota, { cascade: true })
+  pagos: PagoCuota[];
 
   @Column({ type: 'text', nullable: true })
   notas: string | null;

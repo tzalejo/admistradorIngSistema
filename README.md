@@ -95,9 +95,24 @@ npm run migration:create -- src/migrations/NombreMigracion
 | `1000000000000-SeedMonedas` | Inserta las monedas iniciales (ARS, USDT, USD, BTC) |
 | `1000000000001-CleanTestDataAndFKMoneda` | Limpia datos de prueba y asegura el seed de monedas |
 
+### Migraciones en producción
+
+En producción los servicios corren con `docker-compose.prod.yml`. El backend no expone puertos, así que las migraciones se ejecutan dentro del contenedor:
+
+```bash
+# Ejecutar migraciones pendientes
+docker compose -f docker-compose.prod.yml exec backend npm run migration:run
+
+# Revertir la última migración
+docker compose -f docker-compose.prod.yml exec backend npm run migration:revert
+```
+
+> **Nota:** en producción `synchronize` está desactivado, así que **toda** modificación de esquema debe hacerse vía migraciones.
+
 ### Flujo al modificar una entidad
 
 1. Editar el `.entity.ts` correspondiente
 2. Generar la migración: `npm run migration:generate -- src/migrations/DescripcionCambio`
 3. Revisar el archivo generado en `src/migrations/`
-4. Ejecutar: `DB_HOST=localhost npm run migration:run`
+4. Ejecutar en **desarrollo**: `DB_HOST=localhost npm run migration:run`
+5. Ejecutar en **producción**: `docker compose -f docker-compose.prod.yml exec backend npm run migration:run`

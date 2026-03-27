@@ -1,7 +1,7 @@
 export type Moneda = string;
 export type TasaTipo = 'porcentaje' | 'fijo';
 export type EstadoPrestamo = 'activo' | 'devuelto' | 'vencido';
-export type EstadoCuota = 'pendiente' | 'pagado';
+export type EstadoCuota = 'pendiente' | 'parcial' | 'pagado';
 export type TipoOperacion = 'compra' | 'venta' | 'gasto' | 'ingreso';
 
 export interface CuotaInteres {
@@ -10,6 +10,7 @@ export interface CuotaInteres {
   mesNumero: number;
   tasaAplicada: number;
   montoPago: number;
+  montoPagado: number;
   fechaVencimiento: string;
   fechaPagoReal: string | null;
   estado: EstadoCuota;
@@ -135,6 +136,31 @@ export interface UpdateCuotaDto {
   fechaVencimiento?: string;
   fechaPagoReal?: string;
   estado?: EstadoCuota;
+  notas?: string;
+}
+
+export interface PagarCuotaDto {
+  monto: number;
+  fechaPago: string;
+}
+
+export interface PagoCuota {
+  id: number;
+  cuotaId: number;
+  monto: number;
+  fechaPago: string;
+  notas: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PagarCuotaResponse {
+  pagos: PagoCuota[];
+}
+
+export interface UpdatePagoCuotaDto {
+  monto?: number;
+  fechaPago?: string;
   notas?: string;
 }
 

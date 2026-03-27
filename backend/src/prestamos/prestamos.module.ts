@@ -4,9 +4,10 @@ import { PrestamosController } from './prestamos.controller';
 import { PrestamosService } from './prestamos.service';
 import { Prestamo } from './entities/prestamo.entity';
 import { CuotaInteres } from './entities/cuota-interes.entity';
+import { PagoCuota } from './entities/pago-cuota.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Prestamo, CuotaInteres])],
+  imports: [TypeOrmModule.forFeature([Prestamo, CuotaInteres, PagoCuota])],
   controllers: [PrestamosController],
   providers: [PrestamosService],
   exports: [PrestamosService, TypeOrmModule],

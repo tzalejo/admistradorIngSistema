@@ -5,6 +5,7 @@ import { Cache } from 'cache-manager';
 import { Between, Repository } from 'typeorm';
 import { Prestamo } from '../prestamos/entities/prestamo.entity';
 import { CuotaInteres } from '../prestamos/entities/cuota-interes.entity';
+import { PagoCuota } from '../prestamos/entities/pago-cuota.entity';
 import { Operacion } from '../operaciones/entities/operacion.entity';
 import { EstadoPrestamo } from '../common/enums/estado-prestamo.enum';
 import { EstadoCuota } from '../common/enums/estado-cuota.enum';
@@ -52,6 +53,8 @@ export class DashboardService {
     private readonly prestamoRepo: Repository<Prestamo>,
     @InjectRepository(CuotaInteres)
     private readonly cuotaRepo: Repository<CuotaInteres>,
+    @InjectRepository(PagoCuota)
+    private readonly pagoRepo: Repository<PagoCuota>,
     @InjectRepository(Operacion)
     private readonly operacionRepo: Repository<Operacion>,
     private readonly monedasService: MonedasService,
@@ -96,24 +99,28 @@ export class DashboardService {
       }
     }
 
-    // 2. Pagos de intereses (cuotas pagadas)
-    const cuotasPagadas = await this.cuotaRepo.find({
-      where: { estado: EstadoCuota.PAGADO },
-      relations: ['prestamo'],
-      order: { fechaPagoReal: 'ASC' },
-    });
-    for (const c of cuotasPagadas) {
+    // 2. Pagos de intereses (registros individuales de pagos_cuota)
+    const pagos = await this.pagoRepo
+      .createQueryBuilder('pago')
+      .leftJoinAndSelect('pago.cuota', 'cuota')
+      .leftJoinAndSelect('cuota.prestamo', 'prestamo')
+      .orderBy('pago.fechaPago', 'ASC')
+      .getMany();
+    for (const p of pagos) {
+      const cuota = p.cuota;
+      const prestamo = cuota?.prestamo;
+      const cliente = prestamo?.cliente ?? '';
       movimientos.push({
-        id: `cuota-${c.id}`,
-        fecha: c.fechaPagoReal ?? c.fechaVencimiento,
-        descripcion: `Pago interés mes ${c.mesNumero} - ${c.prestamo?.cliente ?? ''}`,
+        id: `pago-${p.id}`,
+        fecha: p.fechaPago,
+        descripcion: `Pago interés mes ${cuota?.mesNumero ?? '?'}${cliente ? ` - ${cliente}` : ''}`,
         tipo: 'pago_interes',
-        moneda: c.prestamo?.moneda ?? 'ARS',
-        debe: c.montoPago,
+        moneda: prestamo?.moneda ?? 'ARS',
+        debe: p.monto,
         haber: null,
         referenciaTipo: 'cuota',
-        referenciaId: c.id,
-        cliente: c.prestamo?.cliente,
+        referenciaId: cuota?.id ?? 0,
+        cliente: prestamo?.cliente,
       });
     }
 
@@ -204,10 +211,10 @@ export class DashboardService {
     for (const p of prestamosActivos) {
       capitalTotalPorMoneda[p.moneda] = (capitalTotalPorMoneda[p.moneda] ?? 0) + p.montoInicial;
       for (const c of p.cuotas ?? []) {
-        if (c.estado === EstadoCuota.PENDIENTE) {
-          interesesPendientesPorMoneda[p.moneda] = (interesesPendientesPorMoneda[p.moneda] ?? 0) + c.montoPago;
-        } else {
-          interesesPagadosPorMoneda[p.moneda] = (interesesPagadosPorMoneda[p.moneda] ?? 0) + c.montoPago;
+        interesesPagadosPorMoneda[p.moneda] = (interesesPagadosPorMoneda[p.moneda] ?? 0) + c.montoPagado;
+        const pendiente = c.montoPago - c.montoPagado;
+        if (pendiente > 0) {
+          interesesPendientesPorMoneda[p.moneda] = (interesesPendientesPorMoneda[p.moneda] ?? 0) + pendiente;
         }
       }
     }
@@ -220,10 +227,10 @@ export class DashboardService {
     const finMesSiguiente = new Date(hoy.getFullYear(), hoy.getMonth() + 2, 0);
 
     const proximasCuotasRaw = await this.cuotaRepo.find({
-      where: {
-        estado: EstadoCuota.PENDIENTE,
-        fechaVencimiento: Between(inicioMesActual, finMesSiguiente),
-      },
+      where: [
+        { estado: EstadoCuota.PENDIENTE, fechaVencimiento: Between(inicioMesActual, finMesSiguiente) },
+        { estado: EstadoCuota.PARCIAL, fechaVencimiento: Between(inicioMesActual, finMesSiguiente) },
+      ],
       relations: ['prestamo'],
       order: { fechaVencimiento: 'ASC' },
     });
@@ -262,12 +269,11 @@ export class DashboardService {
     const cached = await this.cache.get<Record<string, number>>(CACHE_KEY_CAJA);
     if (cached) return cached;
 
-    const [prestamos, operaciones, cuotasPagadas, codigos] = await Promise.all([
+    const [prestamos, operaciones, pagos, codigos] = await Promise.all([
       this.prestamoRepo.find(),
       this.operacionRepo.find(),
-      this.cuotaRepo.find({
-        where: { estado: EstadoCuota.PAGADO },
-        relations: ['prestamo'],
+      this.pagoRepo.find({
+        relations: ['cuota', 'cuota.prestamo'],
       }),
       this.monedasService.getCodigos(),
     ]);
@@ -295,9 +301,11 @@ export class DashboardService {
       }
     }
 
-    for (const c of cuotasPagadas) {
-      if (c.prestamo) {
-        caja[c.prestamo.moneda] = (caja[c.prestamo.moneda] ?? 0) - c.montoPago;
+    // Pagos de intereses individuales
+    for (const pago of pagos) {
+      const moneda = pago.cuota?.prestamo?.moneda;
+      if (moneda) {
+        caja[moneda] = (caja[moneda] ?? 0) - pago.monto;
       }
     }
 
