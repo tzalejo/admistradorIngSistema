@@ -827,7 +827,6 @@ function PagosCuotaDetail({
       {editPago && (
         <EditPagoDialog
           pago={editPago}
-          moneda={moneda}
           onClose={() => setEditPago(null)}
           onSaved={() => { setEditPago(null); loadPagos(); onChanged(); }}
         />
@@ -838,12 +837,10 @@ function PagosCuotaDetail({
 
 function EditPagoDialog({
   pago,
-  moneda,
   onClose,
   onSaved,
 }: {
   pago: PagoCuota;
-  moneda: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
