@@ -209,57 +209,73 @@ export function PrestamoDetallePage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {(prestamo.cuotas ?? []).map((cuota) => {
-              const dias = diasHastaVencimiento(cuota.fechaVencimiento);
-              const vencida = cuota.estado === 'pendiente' && dias < 0;
-              return (
-                <TableRow key={cuota.id}>
-                  <TableCell className="font-medium">{cuota.mesNumero}</TableCell>
-                  <TableCell>
-                    {formatTasa(cuota.tasaAplicada, prestamo.tasaTipo)}
-                  </TableCell>
-                  <TableCell className="font-mono">
-                    {formatMonto(cuota.montoPago, prestamo.moneda)}
-                  </TableCell>
-                  <TableCell>
-                    <span className={vencida ? 'text-destructive' : ''}>
-                      {formatDate(cuota.fechaVencimiento)}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    {cuota.fechaPagoReal ? formatDate(cuota.fechaPagoReal) : '—'}
-                  </TableCell>
-                  <TableCell>
-                    {cuota.estado === 'pagado' ? (
-                      <span className="flex items-center gap-1 text-success text-xs font-medium">
-                        <CheckCircle2 className="h-3.5 w-3.5" /> Pagada
-                      </span>
-                    ) : cuota.estado === 'parcial' ? (
-                      <span className="flex items-center gap-1 text-blue-400 text-xs font-medium">
-                        <CreditCard className="h-3.5 w-3.5" /> Parcial ({Math.round((cuota.montoPagado / cuota.montoPago) * 100)}%)
-                      </span>
-                    ) : vencida ? (
-                      <span className="flex items-center gap-1 text-destructive text-xs font-medium">
-                        <AlertTriangle className="h-3.5 w-3.5" /> Vencida
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-warning text-xs font-medium">
-                        <Clock className="h-3.5 w-3.5" /> Pendiente
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setEditCuota(cuota)}
-                    >
-                      <Edit2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
+            {(() => {
+              const cuotasList = prestamo.cuotas ?? [];
+              const pagadasParciales = cuotasList.filter(
+                (c: CuotaInteres) => c.estado === 'pagado' || c.estado === 'parcial',
               );
-            })}
+              const ultimaEditableId = pagadasParciales.length > 0
+                ? pagadasParciales.reduce((max: CuotaInteres, c: CuotaInteres) =>
+                    c.mesNumero > max.mesNumero ? c : max,
+                  ).id
+                : null;
+
+              return cuotasList.map((cuota: CuotaInteres) => {
+                const dias = diasHastaVencimiento(cuota.fechaVencimiento);
+                const vencida = cuota.estado === 'pendiente' && dias < 0;
+                const puedeEditar = cuota.id === ultimaEditableId;
+
+                return (
+                  <TableRow key={cuota.id}>
+                    <TableCell className="font-medium">{cuota.mesNumero}</TableCell>
+                    <TableCell>
+                      {formatTasa(cuota.tasaAplicada, prestamo.tasaTipo)}
+                    </TableCell>
+                    <TableCell className="font-mono">
+                      {formatMonto(cuota.montoPago, prestamo.moneda)}
+                    </TableCell>
+                    <TableCell>
+                      <span className={vencida ? 'text-destructive' : ''}>
+                        {formatDate(cuota.fechaVencimiento)}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      {cuota.fechaPagoReal ? formatDate(cuota.fechaPagoReal) : '—'}
+                    </TableCell>
+                    <TableCell>
+                      {cuota.estado === 'pagado' ? (
+                        <span className="flex items-center gap-1 text-success text-xs font-medium">
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Pagada
+                        </span>
+                      ) : cuota.estado === 'parcial' ? (
+                        <span className="flex items-center gap-1 text-blue-400 text-xs font-medium">
+                          <CreditCard className="h-3.5 w-3.5" /> Parcial ({Math.round((cuota.montoPagado / cuota.montoPago) * 100)}%)
+                        </span>
+                      ) : vencida ? (
+                        <span className="flex items-center gap-1 text-destructive text-xs font-medium">
+                          <AlertTriangle className="h-3.5 w-3.5" /> Vencida
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-warning text-xs font-medium">
+                          <Clock className="h-3.5 w-3.5" /> Pendiente
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {puedeEditar && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setEditCuota(cuota)}
+                        >
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              });
+            })()}
           </TableBody>
         </Table>
       </div>
@@ -308,6 +324,12 @@ function HistorialPagos({
   const pagadas = cuotas.filter((c) => c.estado === 'pagado');
   const parciales = cuotas.filter((c) => c.estado === 'parcial');
   const pendientes = cuotas.filter((c) => c.estado === 'pendiente');
+
+  // Solo la última cuota pagada/parcial (por mesNumero) es editable
+  const pagadasYParciales = [...pagadas, ...parciales];
+  const ultimaEditableId = pagadasYParciales.length > 0
+    ? pagadasYParciales.reduce((max, c) => c.mesNumero > max.mesNumero ? c : max).id
+    : null;
 
   return (
     <div className="rounded-lg border border-border bg-card overflow-hidden">
@@ -389,7 +411,7 @@ function HistorialPagos({
                 </div>
                 {isExpanded && (
                   <div className="px-5 pb-3">
-                    <PagosCuotaDetail cuotaId={c.id} moneda={moneda} onChanged={onChanged} />
+                    <PagosCuotaDetail cuotaId={c.id} moneda={moneda} editable={c.id === ultimaEditableId} onChanged={onChanged} />
                   </div>
                 )}
               </div>
@@ -441,7 +463,7 @@ function HistorialPagos({
                     <p className="text-xs text-muted-foreground">
                       Resta: {formatMonto(saldo, moneda)} ({Math.round(100 - pct)}%)
                     </p>
-                    <PagosCuotaDetail cuotaId={c.id} moneda={moneda} onChanged={onChanged} />
+                    <PagosCuotaDetail cuotaId={c.id} moneda={moneda} editable={c.id === ultimaEditableId} onChanged={onChanged} />
                   </div>
                 );
               })}
@@ -543,7 +565,7 @@ function EditCuotaDialog({
         tasaAplicada: form.tasaAplicada,
         montoPago: form.montoPago,
         fechaVencimiento: form.fechaVencimiento,
-        ...(form.fechaPagoReal ? { fechaPagoReal: form.fechaPagoReal } : {}),
+        fechaPagoReal: form.fechaPagoReal || null,
         estado: form.estado,
         ...(form.notas ? { notas: form.notas } : {}),
       };
@@ -615,7 +637,14 @@ function EditCuotaDialog({
             <Label>Estado</Label>
             <Select
               value={form.estado}
-              onValueChange={(v) => setForm((f) => ({ ...f, estado: v as EstadoCuota }))}
+              onValueChange={(v) => {
+                const estado = v as EstadoCuota;
+                setForm((f) => ({
+                  ...f,
+                  estado,
+                  ...(estado === 'pendiente' ? { fechaPagoReal: '' } : {}),
+                }));
+              }}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -769,10 +798,12 @@ function PagarCuotaDialog({
 function PagosCuotaDetail({
   cuotaId,
   moneda,
+  editable = true,
   onChanged,
 }: {
   cuotaId: number;
   moneda: string;
+  editable?: boolean;
   onChanged: () => void;
 }) {
   const [pagos, setPagos] = useState<PagoCuota[]>([]);
@@ -804,22 +835,26 @@ function PagosCuotaDetail({
           <span className="text-muted-foreground">{formatDate(p.fechaPago)}</span>
           <div className="flex items-center gap-2">
             <span className="font-mono">{formatMonto(p.monto, moneda)}</span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-5 w-5"
-              onClick={() => setEditPago(p)}
-            >
-              <Edit2 className="h-3 w-3" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-5 w-5 text-destructive"
-              onClick={() => handleDelete(p.id)}
-            >
-              <Trash2 className="h-3 w-3" />
-            </Button>
+            {editable && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5"
+                  onClick={() => setEditPago(p)}
+                >
+                  <Edit2 className="h-3 w-3" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5 text-destructive"
+                  onClick={() => handleDelete(p.id)}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </>
+            )}
           </div>
         </div>
       ))}

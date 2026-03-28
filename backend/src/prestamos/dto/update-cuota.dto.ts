@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsPositive,
   IsString,
+  ValidateIf,
 } from 'class-validator';
 import { EstadoCuota } from '../../common/enums/estado-cuota.enum';
 
@@ -27,10 +28,11 @@ export class UpdateCuotaDto {
   @IsOptional()
   fechaVencimiento?: string;
 
-  @ApiPropertyOptional({ description: 'Fecha en que se pagó efectivamente' })
+  @ApiPropertyOptional({ description: 'Fecha en que se pagó efectivamente (null para limpiar)' })
+  @ValidateIf((_o, value) => value !== null)
   @IsDateString()
   @IsOptional()
-  fechaPagoReal?: string;
+  fechaPagoReal?: string | null;
 
   @ApiPropertyOptional({ enum: EstadoCuota })
   @IsEnum(EstadoCuota)

@@ -75,7 +75,8 @@ export function MovimientosPage() {
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
   const [loading, setLoading] = useState(true);
   const [tipoFilter, setTipoFilter] = useState<TipoFilter>('todos');
-  const today = new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
   const [sortFecha, setSortFecha] = useState<'asc' | 'desc'>('desc');

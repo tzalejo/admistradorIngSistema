@@ -134,7 +134,7 @@ export interface UpdateCuotaDto {
   tasaAplicada?: number;
   montoPago?: number;
   fechaVencimiento?: string;
-  fechaPagoReal?: string;
+  fechaPagoReal?: string | null;
   estado?: EstadoCuota;
   notas?: string;
 }
