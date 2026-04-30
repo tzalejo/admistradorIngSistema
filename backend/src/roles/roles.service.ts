@@ -8,6 +8,7 @@ import { Rol } from './entities/rol.entity';
 const ROLES_INICIALES = [
   { nombre: 'admin', descripcion: 'Acceso total al sistema' },
   { nombre: 'operador', descripcion: 'Acceso estándar de operaciones' },
+  { nombre: 'inversor', descripcion: 'Cliente que aporta capital al negocio para obtener intereses' },
 ];
 
 const CACHE_KEY_ROLES = 'roles:all';
